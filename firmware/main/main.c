@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include "driver/gpio.h"
 #include "esp_event.h"
 #include "esp_netif.h"
@@ -23,6 +24,19 @@ volatile bool capture_busy;
 static QueueHandle_t button_events;
 static uint64_t last_action;
 static RTC_DATA_ATTR unsigned crash_count;
+static time_t firmware_build_time(void){
+    static const char *months[]={"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+    char month_name[4];int month=0,day,year,hour,minute,second;
+    if(sscanf(__DATE__,"%3s %d %d",month_name,&day,&year)!=3 ||
+       sscanf(__TIME__,"%d:%d:%d",&hour,&minute,&second)!=3)return 0;
+    for(int i=0;i<12;i++)if(!strcmp(month_name,months[i])){month=i+1;break;}
+    if(!month||day<1||day>31||hour>23||minute>59||second>60)return 0;
+    int adjusted_year=year+(14-month)/12;
+    int adjusted_month=month+12*((14-month)/12)-3;
+    int64_t julian_day=day+(153*adjusted_month+2)/5+365LL*adjusted_year+
+        adjusted_year/4-adjusted_year/100+adjusted_year/400-32045;
+    return (time_t)((julian_day-2440588)*86400+hour*3600+minute*60+second);
+}
 static void IRAM_ATTR button_isr(void *arg){
     int level=gpio_get_level(CONFIG_WEART_BUTTON);BaseType_t wake=pdFALSE;
     xQueueSendFromISR(button_events,&level,&wake);if(wake)portYIELD_FROM_ISR();
@@ -61,7 +75,8 @@ static void button_task(void *arg){
     while(1){
         if(xQueueReceive(button_events,&level,pdMS_TO_TICKS(1000))){
             int64_t now=esp_timer_get_time()/1000;
-            if(now-last_edge<40)continue;last_edge=now;last_action=now;
+            if(now-last_edge<40)continue;
+            last_edge=now;last_action=now;
             if(level==0)pressed=now;
             else if(pressed){
                 if(now-pressed>=1500){cancel_requested=true;if(!capture_busy)feedback_set(READY);}
@@ -95,7 +110,14 @@ void app_main(void){
     // Certificate validity checks need wall-clock time. Never disable TLS time/hostname verification.
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);esp_sntp_setservername(0,"pool.ntp.org");esp_sntp_init();
     for(int i=0;i<30&&time(NULL)<1700000000;i++)vTaskDelay(pdMS_TO_TICKS(1000));
-    if(time(NULL)<1700000000||pair_device()!=ESP_OK){feedback_set(ERROR_STATE);printf("Time sync or pairing failed; verify network and host configuration.\n");return;}
+    if(time(NULL)<1700000000){
+        time_t build_time=firmware_build_time();
+        if(build_time<1700000000){feedback_set(ERROR_STATE);printf("SNTP failed and firmware build time is invalid; TLS pairing cannot continue.\n");return;}
+        struct timeval tv={.tv_sec=build_time};
+        if(settimeofday(&tv,NULL)!=0){feedback_set(ERROR_STATE);printf("SNTP failed and fallback clock could not be set.\n");return;}
+        printf("SNTP unavailable; using firmware build time for TLS certificate validation.\n");
+    }
+    if(pair_device()!=ESP_OK){feedback_set(ERROR_STATE);printf("Device pairing failed; check the one-time pairing code and host connection.\n");return;}
     crash_count=0;
     button_events=xQueueCreate(12,sizeof(int));ESP_ERROR_CHECK(gpio_install_isr_service(0));
     ESP_ERROR_CHECK(gpio_isr_handler_add(CONFIG_WEART_BUTTON,button_isr,NULL));

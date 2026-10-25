@@ -12,7 +12,6 @@
 #include "freertos/event_groups.h"
 #include "freertos/task.h"
 #include "cJSON.h"
-#include "lwip/apps/sntp.h"
 #include "esp_sntp.h"
 
 static EventGroupHandle_t wifi_events;
@@ -95,7 +94,7 @@ esp_err_t pair_device(void) {
     char *json=cJSON_PrintUnformatted(body);char text[1024]={0};response_t response={text,0,sizeof(text),false};int status=0;
     esp_err_t err=request("/v1/devices/pair",HTTP_METHOD_POST,json,strlen(json),NULL,&response,&status);
     cJSON_Delete(body);free(json);
-    if(err!=ESP_OK || status!=200)return ESP_FAIL;
+    if(err!=ESP_OK || status!=200){printf("Pair request failed (transport=%s, HTTP=%d).\n",esp_err_to_name(err),status);return ESP_FAIL;}
     cJSON *parsed=cJSON_Parse(text);const cJSON *token=cJSON_GetObjectItemCaseSensitive(parsed,"token");
     if(!cJSON_IsString(token) || strlen(token->valuestring)>=sizeof(device_config.token)){cJSON_Delete(parsed);return ESP_FAIL;}
     strlcpy(device_config.token,token->valuestring,sizeof(device_config.token));

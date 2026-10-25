@@ -1,4 +1,7 @@
 {
   "python-envs.defaultEnvManager": "ms-python.python:system",
-  "python-envs.defaultPackageManager": "ms-python.python:pip"
+  "python-envs.defaultPackageManager": "ms-python.python:pip",
+  "cmake.sourceDirectory": "${workspaceFolder}/firmware",
+  "idf.currentSetup": "/home/debangshup/.espressif/v5.5.3/esp-idf",
+  "idf.projectDir": "${workspaceFolder}/firmware"
 }

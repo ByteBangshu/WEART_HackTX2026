@@ -22,7 +22,9 @@ esp_err_t config_load(void) {
 esp_err_t config_save(void) {
     nvs_handle_t h;esp_err_t err=nvs_open("weart",NVS_READWRITE,&h);if(err!=ESP_OK)return err;
     err=nvs_set_blob(h,"config",&device_config,sizeof(device_config));
-    if(err==ESP_OK)err=nvs_commit(h);nvs_close(h);return err;
+    if(err==ESP_OK)err=nvs_commit(h);
+    nvs_close(h);
+    return err;
 }
 static const char PAGE[]= "<!doctype html><meta name='viewport' content='width=device-width'><title>WEART setup</title>"
 "<style>body{font:16px system-ui;max-width:540px;margin:30px auto;padding:15px;background:#eff3e7;color:#213b2c}input,textarea,button{display:block;width:100%;box-sizing:border-box;padding:12px;margin:8px 0 20px}textarea{height:130px}</style>"

@@ -34,6 +34,10 @@ def main():
         .add_extension(
             x509.KeyUsage(False, False, False, False, False, True, True, False, False), critical=True
         )
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(ca_key.public_key()), critical=False)
+        .add_extension(
+            x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False
+        )
         .sign(ca_key, hashes.SHA256())
     )
     key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
@@ -50,6 +54,10 @@ def main():
         .not_valid_before(now - timedelta(minutes=5))
         .not_valid_after(now + timedelta(days=90))
         .add_extension(x509.SubjectAlternativeName([san]), critical=False)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+        .add_extension(
+            x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False
+        )
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .add_extension(x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
         .sign(ca_key, hashes.SHA256())

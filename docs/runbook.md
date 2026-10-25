@@ -16,8 +16,8 @@ Start with `python tools/run.py`; unlock at the printed origin using `runtime/lo
 | Symptom | Check |
 |---|---|
 | Firmware safe mode | Exact pins, PSRAM, duplicate GPIOs, confirmation checkbox |
-| Connection fails | 2.4 GHz WPA2, client isolation, explicit bind, private firewall access |
-| TLS fails | Correct CA, hostname/IP SAN, synchronized clock; never disable validation |
+| Connection fails | 2.4 GHz WPA2, client isolation, explicit bind, private firewall access. With UFW, allow TCP 8765 from the device/subnet to the host IP on the Wi-Fi interface. |
+| TLS fails | Correct CA, hostname/IP SAN, synchronized clock; never disable validation. If UDP/123 is blocked, firmware falls back to its build timestamp, so that timestamp must still be within the host certificate's validity period. |
 | Pairing fails | Code expiry, unique device ID, prior revocation if replacing |
 | UI 400/403 | Use exact WEART_ORIGIN, valid session/CSRF |
 | 401 | Local passphrase/token, session expiry, registry mismatch |

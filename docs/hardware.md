@@ -2,7 +2,19 @@
 
 ## Identify the board
 
-Get manufacturer, revision, camera sensor, PSRAM/flash capacities and schematic. **No numeric pin map is guessed.** In `menuconfig → WEART board configuration`, all pins default to -1; camera initialization requires confirmed, valid, nonduplicated pins. Checks cannot detect every board-specific reservation: review USB, flash, PSRAM and boot strapping pins manually. Select correct quad/octal PSRAM mode.
+The current board listing identifies an **ESP32-S3-N16R8** module with an OV3660 camera. Its N16R8 configuration uses 16 MB flash and 8 MB octal PSRAM; firmware defaults select these memory settings. The linked [camera example](https://github.com/MahdMalik/MiniModelBot/blob/main/main/src/camera.cpp) identifies the following onboard camera connections for this ESP32-S3-CAM layout:
+
+| Camera signal | ESP32 GPIO |
+|---|---:|
+| D0–D7 | 11, 9, 8, 10, 12, 18, 17, 16 |
+| XCLK | 15 |
+| PCLK | 13 |
+| VSYNC | 6 |
+| HREF | 7 |
+| SCCB SDA / SCL | 4 / 5 |
+| PWDN / RESET | Not connected (-1) |
+
+These are PCB connections, not jumper wires. The firmware defaults use this mapping and GPIO 0 (the board's BOOT button) for capture; indicator LEDs are disabled. No breadboard is required. If the board is mounted on one, it only needs its header pins seated for support/power access; do not wire the camera signals to the breadboard. The source example is for an ESP32-S3-CAM layout, so stop and compare the board silkscreen/revision if yours differs.
 
 ## BOM / wiring
 
@@ -22,6 +34,8 @@ Camera signals: D0–D7, XCLK, PCLK, VSYNC, HREF, SCCB SDA/SCL, optional RESET/P
 
 Use official [ESP-IDF 5.5](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32s3/get-started/index.html):
 
+Open the repository's `firmware` folder in VS Code, or activate ESP-IDF 5.5 in a terminal before running:
+
 ```text
 cd firmware
 idf.py set-target esp32s3
@@ -30,7 +44,9 @@ idf.py build
 idf.py -p YOUR_SERIAL_PORT flash monitor
 ```
 
-Camera driver 2.1.8 is pinned. The default partition layout requires at least 4 MB flash and reserves a 3 MB factory application (no OTA slots). Confirm actual flash size and PSRAM mode before flashing. CI builds the unset-pin safe-mode variant; this does not validate hardware. Local firmware compilation status is recorded in verification.md.
+In VS Code, run `ESP-IDF: Import ESP-IDF Project` and choose this `firmware` folder, then run `ESP-IDF: Build your Project`. The build resolves the pinned camera component and generates `firmware/build/compile_commands.json`, which the checked-in IntelliSense configuration uses to resolve ESP-IDF headers. If C imports remain unresolved before the first successful configure, build the project once or run `ESP-IDF: Run idf.py reconfigure task`.
+
+Camera driver 2.1.8 is pinned in `main/idf_component.yml`; Component Manager downloads it and its dependencies into the ignored `managed_components` directory. Keep `dependencies.lock` committed so builds use the resolved component versions. The default partition layout reserves a 3 MB factory application (no OTA slots). CI builds the unset-pin safe-mode variant; this does not validate hardware. Local firmware compilation status is recorded in verification.md.
 
 ## Pair
 
