@@ -67,14 +67,14 @@ export MODEL_API_KEY WEART_PROVIDER=meta WEART_ALLOW_UNBOUNDED_SEARCH=true
 .venv/bin/python tools/run.py --live
 ```
 
-Keep `MODEL_API_KEY` in a private local environment; never put it in chat or firmware. After stopping the app, run `unset MODEL_API_KEY`. The bridge refuses mock mode and will not capture or submit an image unless live mode and search opt-in are enabled. In another terminal, install project dependencies if needed and start the USB-to-app bridge:
+Keep `MODEL_API_KEY` in a private local environment; never put it in chat or firmware. After stopping the app, run `unset MODEL_API_KEY`. The bridge refuses mock mode. Search opt-in is optional for testing extraction from a badge or handwritten note; sourced briefings need it. In another terminal, install project dependencies if needed and start the USB-to-app bridge:
 
 ```text
 .venv/bin/python -m pip install -r requirements.lock
 .venv/bin/python tools/esp32_usb_capture.py --port YOUR_SERIAL_PORT
 ```
 
-When the bridge says it is listening, short-press the ESP32 capture button. It transfers the JPEG over USB, submits it to the local app, and prints the resulting sourced summary. The image comes directly from the ESP32, not a manual browser upload. To restore Wi-Fi capture, disable the USB-transfer option in menuconfig, then run `idf.py build` and `idf.py -p YOUR_SERIAL_PORT app-flash`; this app-only flash preserves NVS. USB mode is disabled by default.
+When the bridge says it is listening, short-press the ESP32 capture button. It transfers the JPEG over USB, submits it to the local app, and prints the extracted fields. With search enabled, it may also print a sourced briefing. The image comes directly from the ESP32, not a manual browser upload. To restore Wi-Fi capture, disable the USB-transfer option in menuconfig, then run `idf.py build` and `idf.py -p YOUR_SERIAL_PORT app-flash`; this app-only flash preserves NVS. USB mode is disabled by default.
 
 ## Pair
 

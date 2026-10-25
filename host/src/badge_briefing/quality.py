@@ -36,11 +36,11 @@ def gate(data: bytes) -> Quality:
         if min(im.size) < 200:
             reasons.append("Move closer or increase camera resolution.")
         if stats.mean[0] < 35:
-            reasons.append("Add soft light; the card is too dark.")
+            reasons.append("Add soft light; the image is too dark.")
         if edge < 45:
             reasons.append("Hold still and focus on the printed text.")
         if glare > 0.90:
-            reasons.append("Tilt the card to reduce glare or overexposure.")
+            reasons.append("Tilt the page or badge to reduce glare or overexposure.")
         out = io.BytesIO()
         im.save(out, format="JPEG", quality=90)  # strips EXIF and all original metadata
         return Quality(

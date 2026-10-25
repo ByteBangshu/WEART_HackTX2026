@@ -62,7 +62,7 @@ Read [hardware setup](docs/hardware.md) before flashing. “ESP32-S3-CAM” is i
 ## Implemented
 
 - Async FastAPI jobs; bounded streaming JPEG ingress, per-device rate limits, capture-ID deduplication, cancellation, correction, SSE, expiry and purge.
-- Hackathon capture flow: every decodable JPEG is sent straight to field extraction. Blur, darkness, and glare are advisory warnings; unreadable organization fields can be corrected in the phone UI before research.
+- Hackathon capture flow: every decodable JPEG, including a readable handwritten name/company note, is sent straight to field extraction. Blur, darkness, and glare are advisory warnings; unreadable organization fields can be corrected in the phone UI before research.
 - Size/pixel/decode checks, metadata stripping, and advisory image-quality heuristics. Decodable images always reach field extraction.
 - Grounded research, identity confidence, independent-source checks, citation validation, independent verification and one repair attempt.
 - Meta and mock adapters, memory-only briefs/cache, source-linked organization fallback and honest unavailable-context output.

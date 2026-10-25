@@ -85,7 +85,7 @@ def print_summary(result):
     extraction = result.get("extraction") or {}
     if extraction:
         print(
-            "Card: "
+            "Extracted: "
             + " · ".join(
                 value
                 for value in (
@@ -146,10 +146,7 @@ def main():
             session = client.get("/v1/session")
             session.raise_for_status()
             if not session.json().get("search_enabled"):
-                raise SystemExit(
-                    "Source-backed summaries require explicitly enabling unbounded provider search cost "
-                    "with WEART_ALLOW_UNBOUNDED_SEARCH=true."
-                )
+                print("Search is off: testing image extraction only; sourced briefing may be unavailable.")
 
             port = serial.Serial(port=None, baudrate=115200, timeout=0.5)
             port.port = args.port
