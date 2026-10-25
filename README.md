@@ -14,7 +14,7 @@ python -m venv .venv
 
 Open **http://127.0.0.1:8765**. The launcher creates `runtime/local-config.json`; use its `pin` value to unlock the UI. Keep this ignored file private. It also holds the simulator token, never the Meta key. Stop with Ctrl+C.
 
-Click **Try a fictional demo**. Workspace controls offer successful identity, organization-only, no-sources, and rejected-card scenarios. Correct fields, try another candidate, cancel, forget, purge, or pause captures. The UI follows new device jobs automatically. Browser storage retains only the appearance preference and static application shell.
+Click **Try a fictional demo**. Workspace controls offer successful identity, organization-only, and no-sources scenarios. Correct fields, try another candidate, cancel, forget, purge, or pause captures. The UI follows new device jobs automatically. Browser storage retains only the appearance preference and static application shell.
 
 In another terminal, exercise the actual upload API and idempotency:
 
@@ -62,8 +62,8 @@ Read [hardware setup](docs/hardware.md) before flashing. “ESP32-S3-CAM” is i
 ## Implemented
 
 - Async FastAPI jobs; bounded streaming JPEG ingress, per-device rate limits, capture-ID deduplication, cancellation, correction, SSE, expiry and purge.
-- Separate card classification and allowlisted extraction; government/payment/unknown-card rejection before extraction/research.
-- Size/pixel/decode checks, metadata stripping, image-quality heuristics; two-retake limit applies only to quality.
+- Hackathon capture flow: every decodable JPEG is sent straight to field extraction. Blur, darkness, and glare are advisory warnings; unreadable organization fields can be corrected in the phone UI before research.
+- Size/pixel/decode checks, metadata stripping, and advisory image-quality heuristics. Decodable images always reach field extraction.
 - Grounded research, identity confidence, independent-source checks, citation validation, independent verification and one repair attempt.
 - Meta and mock adapters, memory-only briefs/cache, source-linked organization fallback and honest unavailable-context output.
 - Passphrase sessions, CSRF/origin/Host checks, hashed revocable device tokens, single-use pairing codes, TLS support, CSP, kill switch and redacted logs.

@@ -5,9 +5,8 @@ Single-process modular monolith: `domain.py` contains validated contracts; `port
 ```mermaid
 flowchart LR
   B[Button or simulator] --> C[Bounded JPEG ingress]
-  C --> Q[Quality gate]
-  Q --> T[Card classification]
-  T --> E[Professional extraction]
+  C --> Q[JPEG decode and metadata removal]
+  Q --> E[Professional field extraction]
   E --> R[Identity and public evidence]
   R --> S[Synthesis]
   S --> V[Independent verification]
@@ -16,7 +15,7 @@ flowchart LR
   C -. Job events .-> U
 ```
 
-Input safety checks precede the model card-type gate. Unsupported/uncertain types never reach extraction/research. Metadata is removed before inference. Image bytes are not attached to jobs, events or disk. Python memory release does not guarantee allocator/OS erasure.
+Input safety checks validate JPEG decoding, size and dimensions. Blur, darkness and glare produce advisory warnings but do not block extraction. The model reads professional fields directly; if the organization is unreadable, the user can correct it before research. Metadata is removed before inference. Image bytes are not attached to jobs, events or disk. Python memory release does not guarantee allocator/OS erasure.
 
 States follow the brief plus `AWAITING_CONFIRMATION` and `CANCELLED`. Corrections cancel/await previous work; job budget persists across revisions. Forget marks the job deleted, cancels/awaits work, clears fields/results/cache, removes deduplication and wakes SSE readers. Expiry uses the original capture time. Research cache uses salted SHA-256 normalized identity keys and a 30-minute TTL.
 

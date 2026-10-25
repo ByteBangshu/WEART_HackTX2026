@@ -278,7 +278,7 @@ def create_app(settings=None, provider=None):
                 data = bytearray()
                 async for chunk in request.stream():
                     if len(data) + len(chunk) > MAX_BYTES:
-                        raise HTTPException(413, "JPEG exceeds 3 MB")
+                        raise HTTPException(413, "JPEG exceeds 10 MB")
                     data.extend(chunk)
             rates[who] = time.monotonic()
             job = pipeline.add(who, capture_id, bytes(data))
@@ -300,7 +300,7 @@ def create_app(settings=None, provider=None):
             raise HTTPException(409, "Demo is available only with the offline mock provider")
         capacity()
         scenario = request.query_params.get("scenario", "success")
-        if scenario not in {"success", "organization", "missing", "rejected"}:
+        if scenario not in {"success", "organization", "missing"}:
             raise HTTPException(400, "Unknown demo scenario")
         job = pipeline.add("ui", secrets.token_hex(16), demo_jpeg(), scenario)
         return {"job_id": job.id}
@@ -372,11 +372,11 @@ def create_app(settings=None, provider=None):
         pipeline.cache.pop(pipeline.key(job.extraction), None)
         for key in ("name", "organization"):
             value = getattr(body, key).strip()
-            if not value:
-                raise HTTPException(422, "Fields cannot be blank")
+            if key == "organization" and not value:
+                raise HTTPException(422, "Organization cannot be blank")
             getattr(job.extraction, key).text = value
             getattr(job.extraction, key).normalized = value
-            getattr(job.extraction, key).confidence = 1.0
+            getattr(job.extraction, key).confidence = 1.0 if value else 0.0
         job.excluded.clear()
         await pipeline.restart(job)
         return {"job_id": job.id}
@@ -387,6 +387,8 @@ def create_app(settings=None, provider=None):
         job = owned(request, job_id)
         if job.state != State.AWAITING_CONFIRMATION:
             raise HTTPException(409, "Job is not awaiting confirmation")
+        if not job.extraction or not job.extraction.organization.normalized:
+            raise HTTPException(409, "Enter an organization to continue")
         job.confirmed.set()
         return {"ok": True}
 
@@ -482,7 +484,6 @@ def create_app(settings=None, provider=None):
         devices.pop(device, None)
         persist_devices()
         rates.pop(device, None)
-        pipeline.retakes.pop(device, None)
 
     @app.get("/metrics")
     async def metrics(request: Request):

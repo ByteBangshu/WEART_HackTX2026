@@ -143,5 +143,5 @@ class Verification(Model):
 
 
 class Correction(Model):
-    name: str = Field(min_length=1, max_length=160)
+    name: str = Field(max_length=160)
     organization: str = Field(min_length=1, max_length=160)

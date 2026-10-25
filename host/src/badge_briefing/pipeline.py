@@ -90,7 +90,6 @@ class Pipeline:
         self.settings, self.provider = settings, provider
         self.jobs: dict[str, Job] = {}
         self.dedupe: dict[tuple[str, str], str] = {}
-        self.retakes: dict[str, int] = {}
         self.ledger = Ledger(settings.daily_cost_cap)
         self.cache: dict[str, tuple] = {}
         self.cache_salt = uuid.uuid4().hex
@@ -132,44 +131,21 @@ class Pipeline:
                                 "Invalid JPEG or unsafe image dimensions. Capture another image.",
                             )
                             return
-                        job.quality = quality.metrics
-                        if quality.reasons and self.retakes.get(job.device, 0) < 2:
-                            self.retakes[job.device] = self.retakes.get(job.device, 0) + 1
-                            job.emit(State.RETAKE, " ".join(quality.reasons))
-                            return
-                        self.retakes[job.device] = 0
+                        job.quality = {**quality.metrics, "warnings": quality.reasons}
                         image = quality.jpeg
                         del quality
                         job.emit(State.GATED, "JPEG checked; metadata removed")
-                        job.emit(State.EXTRACTING, "Checking card type before reading professional fields")
-                        classification = await self.step(self.provider.classify(image, scenario, job.budget))
-                        job.classification = classification
-                        if (
-                            classification.card_type
-                            not in {"conference_badge", "corporate_id", "business_card"}
-                            or classification.confidence < 0.2
-                        ):
-                            job.emit(
-                                State.REJECTED_CARD_TYPE,
-                                "Only clearly identified professional badges and business cards are accepted. No research performed.",
-                            )
-                            return
+                        job.emit(State.EXTRACTING, "Reading name and organization from image")
                         extraction = await self.step(self.provider.extract(image, scenario, job.budget))
-                        if extraction.card_type not in {"conference_badge", "corporate_id", "business_card"}:
-                            job.emit(
-                                State.REJECTED_CARD_TYPE,
-                                "This card type is not supported. No research performed.",
-                            )
-                            return
                         job.extraction = extraction
                     finally:
                         image = None  # no image stored in Job, cache, events, or disk
-                    if (
-                        not job.extraction.organization.normalized
-                        or job.extraction.legibility == "unreadable"
-                    ):
-                        job.emit(State.RETAKE, "The organization is unreadable. Please rescan.")
-                        return
+                    if not job.extraction.organization.normalized:
+                        job.emit(
+                            State.AWAITING_CONFIRMATION,
+                            "Organization could not be read. Enter it below to continue.",
+                        )
+                        await job.confirmed.wait()
                     if self.settings.require_confirmation:
                         job.emit(
                             State.AWAITING_CONFIRMATION,

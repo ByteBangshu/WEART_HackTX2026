@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 from PIL import Image, ImageFilter, ImageStat, UnidentifiedImageError
 
-MAX_BYTES = 3_000_000
-MAX_PIXELS = 12_000_000
+MAX_BYTES = 10_000_000
+MAX_PIXELS = 50_000_000
 
 
 @dataclass
@@ -17,13 +17,13 @@ class Quality:
 
 def gate(data: bytes) -> Quality:
     if len(data) > MAX_BYTES or not data.startswith(b"\xff\xd8") or not data.endswith(b"\xff\xd9"):
-        raise ValueError("Upload a complete JPEG smaller than 3 MB.")
+        raise ValueError("Upload a complete JPEG smaller than 10 MB.")
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(io.BytesIO(data)) as source:
                 if source.format != "JPEG" or source.width * source.height > MAX_PIXELS:
-                    raise ValueError("JPEG exceeds the 12 megapixel safety limit.")
+                    raise ValueError("JPEG exceeds the 50 megapixel safety limit.")
                 source.load()
                 im = source.convert("RGB")
         im.thumbnail((1600, 1600))

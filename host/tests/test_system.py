@@ -7,7 +7,7 @@ import httpx
 import pytest
 from badge_briefing.app import create_app, demo_jpeg
 from badge_briefing.config import ROOT, Settings
-from badge_briefing.domain import TERMINAL, Classification, Research, State
+from badge_briefing.domain import TERMINAL, Research, State
 from badge_briefing.providers import Budget, Ledger, MetaMuseAdapter, MockAdapter
 from badge_briefing.quality import gate
 from badge_briefing.safety import resolve, safe_url, validate_brief
@@ -73,16 +73,12 @@ async def test_demo_end_to_end_with_sources_and_sse(client):
     [
         ("organization", "COMPLETE_ORG_ONLY"),
         ("missing", "COMPLETE_ORG_ONLY"),
-        ("rejected", "REJECTED_CARD_TYPE"),
     ],
 )
 async def test_clean_fallbacks(client, scenario, state):
     data = await result(client, await demo(client, scenario))
     assert data["state"] == state
-    if state == "REJECTED_CARD_TYPE":
-        assert data["extraction"] is None and data["brief"] is None
-    else:
-        assert not data["brief"]["interests"]
+    assert not data["brief"]["interests"]
 
 
 async def test_capture_dedupe_and_device_compact_status(client, settings):
@@ -122,7 +118,7 @@ async def test_simultaneous_retry_creates_only_one_job(client):
 
 async def test_size_corruption_and_media_type(client):
     h = {"X-Capture-ID": "capture-invalid", "Content-Type": "image/jpeg"}
-    assert (await client.post("/v1/captures", headers=h, content=b"a" * 3000001)).status_code == 413
+    assert (await client.post("/v1/captures", headers=h, content=b"a" * 10000001)).status_code == 413
     assert (
         await client.post("/v1/captures", headers={**h, "Content-Type": "image/png"}, content=b"abc")
     ).status_code == 415
@@ -195,7 +191,7 @@ async def test_pairing_one_time_scoped_and_revocable(client):
     assert (await client.get("/v1/devices/new-device/config", headers=h)).status_code == 401
 
 
-async def test_retake_limit_never_bypasses_invalid_jpeg(client):
+async def test_low_light_is_advisory_but_invalid_jpeg_is_rejected(client):
     output = io.BytesIO()
     Image.new("RGB", (500, 500), "black").save(output, format="JPEG")
     states = []
@@ -206,7 +202,7 @@ async def test_retake_limit_never_bypasses_invalid_jpeg(client):
             content=output.getvalue(),
         )
         states.append((await result(client, response.json()["job_id"]))["state"])
-    assert states == ["RETAKE", "RETAKE", "COMPLETE"]
+    assert states == ["COMPLETE", "COMPLETE", "COMPLETE"]
     with pytest.raises(ValueError):
         gate(b"bad")
 
@@ -306,39 +302,47 @@ async def test_meta_payload_schema_privacy_and_grounding(settings):
     await adapter.close()
 
 
-async def test_rejected_card_never_extracts_or_researches(settings):
+async def test_card_classifier_cannot_block_extraction(settings):
     class Spy(MockAdapter):
-        async def extract(self, *args):
-            raise AssertionError("should not extract rejected card")
-
-        async def research(self, *args):
-            raise AssertionError("should not research rejected card")
+        async def classify(self, *args):
+            raise AssertionError("classifier should not be called")
 
     app = create_app(settings, Spy(settings))
     pipeline = app.state.pipeline
     job = pipeline.add("d", "c", demo_jpeg(), "rejected")
     await job.task
-    assert job.state == State.REJECTED_CARD_TYPE and job.extraction is None
-    assert job.snapshot()["classification"] == {"card_type": "government_id", "confidence": 0.99}
+    assert job.state == State.COMPLETE and job.extraction is not None
+    assert job.snapshot()["classification"] is None
     assert all(not isinstance(value, bytes) for value in vars(job).values())
     await pipeline.close()
 
 
-@pytest.mark.parametrize(
-    ("confidence", "expected"), [(0.2, State.COMPLETE), (0.19, State.REJECTED_CARD_TYPE)]
-)
-async def test_classification_confidence_cutoff(settings, confidence, expected):
-    class Classifier(MockAdapter):
-        async def classify(self, image, scenario, budget):
-            return Classification(card_type="conference_badge", confidence=confidence)
+async def test_unreadable_organization_can_be_corrected(client):
+    class Unreadable(MockAdapter):
+        async def extract(self, image, scenario, budget):
+            result = await super().extract(image, scenario, budget)
+            result.organization.text = result.organization.normalized = ""
+            result.organization.confidence = 0
+            result.name.text = result.name.normalized = ""
+            result.name.confidence = 0
+            result.legibility = "unreadable"
+            return result
 
-    app = create_app(settings, Classifier(settings))
-    pipeline = app.state.pipeline
-    job = pipeline.add("d", "c", demo_jpeg())
-    await job.task
-    assert job.state == expected
-    assert job.snapshot()["classification"]["confidence"] == confidence
-    await pipeline.close()
+    client.app_ref.state.pipeline.provider = Unreadable(client.app_ref.state.settings)
+    job_id = await demo(client)
+    for _ in range(100):
+        if client.app_ref.state.pipeline.jobs[job_id].state == State.AWAITING_CONFIRMATION:
+            break
+        await asyncio.sleep(0.01)
+    assert (await client.post(f"/v1/jobs/{job_id}/confirm")).status_code == 409
+    response = await client.patch(
+        f"/v1/jobs/{job_id}/extraction",
+        json={"name": "", "organization": "Example Robotics"},
+    )
+    assert response.status_code == 200
+    data = await result(client, job_id)
+    assert data["state"] == "COMPLETE_ORG_ONLY"
+    assert data["extraction"]["organization"]["normalized"] == "Example Robotics"
 
 
 async def test_failed_verification_repairs_once_then_degrades(settings):

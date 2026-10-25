@@ -10,7 +10,7 @@ For a real ESP32 USB capture, follow [USB capture setup](hardware.md#usb-capture
 2. Trigger camera/simulator/demo. Show extracted professional fields, confidence, source-linked briefing and questions.
 3. Expand Why this works and Sources: demonstrate evidence → claim → question.
 4. Click Wrong person? Show organization fallback instead of merged identities.
-5. Try the rejected-card demo: no extracted personal fields or research.
+5. Show that image-quality warnings do not stop extraction. If the organization is unreadable, correct it in the phone UI.
 6. Forget the briefing and show removal from the session list.
 
 ## Troubleshooting
@@ -24,7 +24,7 @@ For a real ESP32 USB capture, follow [USB capture setup](hardware.md#usb-capture
 | UI 400/403 | Use exact WEART_ORIGIN, valid session/CSRF |
 | 401 | Local passphrase/token, session expiry, registry mismatch |
 | Context unavailable | Search opt-in, provider access, absent sources or genuine ambiguity |
-| Retakes | Card framing, focus, light and glare; thresholds are heuristic |
+| Retakes | Only corrupt, oversized or unsafe JPEGs trigger a retake. Blur, darkness and glare are advisory. |
 | Budget exhaustion | Reserved metrics and provider limits; do not automatically increase caps |
 | Async tests hang in restricted Windows executor | asyncio needs local socketpair permission; run in a normal local terminal |
 

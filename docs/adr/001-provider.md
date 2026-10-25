@@ -19,7 +19,7 @@ Context: image extraction, typed outputs and professional search evidence. Optio
 | Grounding | Model URLs alone are insufficient; actual retrieved snippets must match |
 | Limits | Standard Spark 1.3: 3,000 RPM and 4M TPM per team |
 | Prices | $1.25/M input, $0.15/M cached input, $4.25/M output; $2.50/1,000 search queries |
-| Image limit | Provider 50 MB inline; app 3 MB and 12 MP |
+| Image limit | Provider 50 MB inline; app 10 MB and 50 MP before downsampling |
 | Region | Expanded availability; local account access still needs verification |
 
 Sources: [Responses](https://dev.meta.ai/docs/protocols/responses), [models](https://dev.meta.ai/docs/models), [images](https://dev.meta.ai/docs/image-understanding), [schemas](https://dev.meta.ai/docs/structured-output), [search](https://dev.meta.ai/docs/search-grounding), [reasoning](https://dev.meta.ai/docs/reasoning), [pricing](https://dev.meta.ai/docs/pricing-rate-limits), [availability](https://dev.meta.ai/help/accounts-and-login/supported-countries).

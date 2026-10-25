@@ -34,7 +34,7 @@ if (localStorage.getItem("weart-theme") === "dark") document.body.classList.add(
 async function action(fn) { try { await fn(); } catch (err) { notice(err.message); } }
 $("demo").onclick = () => action(async () => { const job = await api("/v1/demo?scenario=" + $("scenario").value, {method:"POST"}); watch(job.job_id); });
 $("upload").onclick = $("rescan").onclick = () => $("file").click();
-$("file").onchange = () => action(async () => { const file = $("file").files[0]; if (!file) return; if (file.size > 3000000) throw new Error("Choose a JPEG smaller than 3 MB."); const id = crypto.randomUUID(); const job = await api("/v1/captures", {method:"POST",headers:{"Content-Type":"image/jpeg","X-Capture-ID":id},body:file}); $("file").value=""; watch(job.job_id); });
+$("file").onchange = () => action(async () => { const file = $("file").files[0]; if (!file) return; if (file.size > 10000000) throw new Error("Choose a JPEG smaller than 10 MB."); const id = crypto.randomUUID(); const job = await api("/v1/captures", {method:"POST",headers:{"Content-Type":"image/jpeg","X-Capture-ID":id},body:file}); $("file").value=""; watch(job.job_id); });
 function watch(id) {
   if (stream) stream.close(); current = id; clearBrief();
   $("empty").hidden = true; $("result").hidden = false;
@@ -52,7 +52,7 @@ function render(job) {
   $("empty").hidden = true; $("result").hidden = false;
   $("timeline").replaceChildren(node("strong",job.message),node("span",`${job.state.replaceAll("_"," ")} · ${job.elapsed_seconds}s${job.mock ? " · simulated" : ""}`));
   const done=terminal.has(job.state); if (done && stream) stream.close();
-  $("cancel").hidden=done; $("wrong").hidden=!job.brief; $("confirm").hidden=job.state!=="AWAITING_CONFIRMATION";
+  $("cancel").hidden=done; $("wrong").hidden=!job.brief; $("confirm").hidden=job.state!=="AWAITING_CONFIRMATION" || !job.extraction?.organization.normalized;
   $("correction").hidden=!job.extraction || ["RETAKE","CANCELLED","REJECTED_CARD_TYPE"].includes(job.state);
   if (job.extraction && !$("correction").contains(document.activeElement)) { $("person-name").value=job.extraction.name.normalized; $("person-org").value=job.extraction.organization.normalized; }
   const box=$("brief-content"); box.replaceChildren();
