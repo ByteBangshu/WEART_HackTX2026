@@ -208,16 +208,19 @@ class Pipeline:
                     brief = await self.step(
                         self.provider.synthesize(context, job.budget, repair=bool(attempt))
                     )
-                    job.emit(State.VERIFYING, "Checking claims, citations, and identity consistency")
+                    job.emit(State.VERIFYING, "Checking citations and basic safety")
                     problems = validate_brief(brief, evidence, confidence)
-                    verification = await self.step(self.provider.verify(brief, context, job.budget))
-                    if not problems and verification.verdict == "pass":
-                        # Construct device text only from already verified claims.
+                    if not problems:
+                        # Construct device text from the generated, source-linked claims.
                         brief.device_lines = [
                             brief.headline.text[:70],
                             (brief.starters[0].text if brief.starters else "See briefing on phone")[:165],
                         ]
                         job.brief = brief
+                        if len(brief.caveats) < 8:
+                            brief.caveats.append(
+                                "AI-generated claims were not independently checked against the source text."
+                            )
                         if research._grounding_status == "title_only_grounding" and len(brief.caveats) < 8:
                             brief.caveats.append(
                                 "Some sources supplied only titles, so the briefing is limited to facts those titles support."
@@ -239,9 +242,7 @@ class Pipeline:
                             else "Organization briefing ready; individual could not be verified",
                         )
                         return
-                    if verification.verdict == "degrade":
-                        break
-                self.fallback(job, "The generated claims did not pass verification.")
+                self.fallback(job, "The generated briefing failed citation or basic safety checks.")
         except asyncio.CancelledError:
             job.emit(State.CANCELLED, "Capture cancelled")
             raise

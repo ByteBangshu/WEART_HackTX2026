@@ -373,7 +373,7 @@ async def test_partial_image_text_waits_for_name_and_company_review(client):
     assert data["extraction"]["organization"]["normalized"] == "Apple"
 
 
-async def test_failed_verification_repairs_once_then_degrades(settings):
+async def test_model_verifier_is_not_called(settings):
     from badge_briefing.domain import Verification
 
     class Reject(MockAdapter):
@@ -387,9 +387,10 @@ async def test_failed_verification_repairs_once_then_degrades(settings):
     app = create_app(settings, provider)
     job = app.state.pipeline.add("d", "c", demo_jpeg())
     await job.task
-    assert provider.count == 2 and job.state == State.COMPLETE
-    assert job.brief.confidence == "medium"
-    assert job.brief.interests == [] and job.brief.starters == []
+    assert provider.count == 0 and job.state == State.COMPLETE
+    assert job.brief.confidence == "high"
+    assert job.brief.interests and job.brief.starters
+    assert any("not independently checked" in caveat for caveat in job.brief.caveats)
     assert job.brief.summary[0].source_ids == [job.evidence[0].id]
     await app.state.pipeline.close()
 
