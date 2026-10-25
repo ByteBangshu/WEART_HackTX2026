@@ -2,7 +2,7 @@
 
 **Recommended ESP32 setup:** ESP32 camera → Wi-Fi JPEG snapshot → Python on your computer → Muse Spark badge OCR → public company bio search → résumé-based advice → the same computer's terminal.
 
-The ESP32 only captures and serves a photo. Python and Muse Spark do the analysis. You do **not** need an Arduino board or a Raspberry Pi. An ESP32 without a camera module cannot take an image; use an ESP32-CAM or another ESP32 camera board. The *Arduino IDE* can still be used to flash ESP32 firmware if available; it does not mean using Arduino hardware.
+The ESP32 only captures and serves a photo. Python and Muse Spark do the analysis. You do **not** need an Arduino board or a Raspberry Pi (the small computer sometimes called a “Pi”); run `pi_pipeline.py` on your regular computer. The script's filename is historical. An ESP32 without a camera module cannot take an image; use an ESP32-CAM or another ESP32 camera board. The *Arduino IDE* can still be used to flash ESP32 firmware if available; it does not mean using Arduino hardware.
 
 ## 1. Set up the ESP32 camera
 
@@ -29,9 +29,32 @@ While developing, you can skip hardware and use an existing clear image:
 python pi_pipeline.py --resume my_resume.txt --image badge.jpg
 ```
 
-## Alternate Raspberry Pi path
+## Optional: run the pipeline on a Raspberry Pi
 
-The earlier Pi path still works: run `python3 pi_pipeline.py --resume my_resume.txt` directly on a Pi with `rpicam-still` or `libcamera-still`. To forward the Pi's terminal result to a second computer, run `computer_receiver.py` there and supply `--receiver` and a shared `RECEIVER_TOKEN` as in the earlier version. With ESP32, run the pipeline **on your computer**, so this receiver is unnecessary.
+Keep `pi_pipeline.py` and your résumé in this project folder. The Pi needs Python 3.9+ and a working camera command (`rpicam-still` or `libcamera-still`); the script uses whichever is installed. No Python packages need to be installed. From the project folder, set the API key and run:
+
+```sh
+export MODEL_API_KEY='your-meta-model-api-key'
+python3 pi_pipeline.py --resume my_resume.txt
+```
+
+With no `--image` or `--esp32-url`, the script takes a still photo with the Pi camera, then sends it and the résumé to Muse Spark. To test without the camera, pass `--image badge.jpg` instead.
+
+To also show the result on a second computer, start the receiver on that computer:
+
+```sh
+export RECEIVER_TOKEN='choose-a-shared-secret'
+python3 computer_receiver.py
+```
+
+Then run the pipeline on the Pi with the same token:
+
+```sh
+export RECEIVER_TOKEN='choose-a-shared-secret'
+python3 pi_pipeline.py --resume my_resume.txt --receiver http://COMPUTER_IP:8765
+```
+
+Replace `COMPUTER_IP` with the computer's address on the local network. The receiver is optional; without it, the result appears in the Pi's terminal. Use a trusted network because this receiver is intended for a local demo.
 
 ## What each stage does
 
