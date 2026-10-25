@@ -84,7 +84,7 @@ static void capture_task(void *arg){
             char state[48]={0};
             if(poll_job(job,state,sizeof(state))==ESP_OK){
                 if(!strcmp(state,"COMPLETE")||!strcmp(state,"COMPLETE_ORG_ONLY")){feedback_set(DONE);terminal=true;break;}
-                if(!strcmp(state,"RETAKE")||!strcmp(state,"REJECTED_CARD_TYPE")){feedback_set(RETAKE);terminal=true;break;}
+                if(!strcmp(state,"RETAKE")){feedback_set(RETAKE);terminal=true;break;}
                 if(!strcmp(state,"FAILED")||!strcmp(state,"CANCELLED")||!strcmp(state,"EXPIRED")){feedback_set(ERROR_STATE);terminal=true;break;}
             }
             vTaskDelay(pdMS_TO_TICKS(1000));

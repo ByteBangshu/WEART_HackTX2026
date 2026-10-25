@@ -13,7 +13,7 @@ Context: image extraction, typed outputs and professional search evidence. Optio
 | Storage | `store:false`; not account-level ZDR |
 | Output | `text.format`, `json_schema`, schema/name, `strict:true` |
 | Schema | Object root, all properties required, no additional properties, nullable unknowns |
-| Reasoning | `reasoning.effort`: low for classify/extract, medium later |
+| Reasoning | `reasoning.effort`: low for extraction, medium later |
 | Tokens | `max_output_tokens:4000`, including reasoning |
 | Search | `web_search`, medium context; `include:["web_search_call.results"]` |
 | Grounding | Model URLs alone are insufficient; actual retrieved snippets must match |

@@ -6,7 +6,7 @@ Assets: API key, device token, Wi-Fi credentials, raw image, professional fields
 |---|---|---|
 | Spoofed device | Random token, host hash, scoped access, revocation | Physical theft; flash encryption not yet configured |
 | Prompt injection | Delimited data, schema constraints, search-only tools, verification | Model behavior remains probabilistic |
-| Poisoned source/wrong person | Actual retrieved snippets, name/org checks, independent domains, fallback | Copied bios, common names and publisher classification need live evaluation |
+| Poisoned source/wrong person | Actual retrieved snippets, name/org checks, independent domains, fallback | Copied bios, common names and publisher reliability assessment need live evaluation |
 | LAN MITM/rebinding | TLS CA/hostname validation, private bind, Host/origin checks | Initial CA trust relies on physical commissioning |
 | Stolen device | No model keys or retained images; revocable token | Unencrypted NVS readable by a physical attacker |
 | Secret leakage | Environment key, ignored runtime, no response/exception logging | OS dumps, shell handling and existing Git history remain operator concerns |

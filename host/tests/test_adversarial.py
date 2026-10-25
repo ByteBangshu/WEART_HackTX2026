@@ -69,7 +69,7 @@ async def test_retries_are_bounded_and_schema_errors_fail_closed():
 
     adapter = MetaMuseAdapter(settings(), httpx.MockTransport(handler))
     with pytest.raises(ProviderError):
-        await adapter.classify(b"x", "", Budget(1, Ledger(5)))
+        await adapter.extract(b"x", "", Budget(1, Ledger(5)))
     assert len(calls) == 2
     await adapter.close()
 

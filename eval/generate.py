@@ -20,22 +20,13 @@ def main():
         names = ["Avery Demo", "Zoë Demo", "Алекс Демо", "Νίκη Δοκιμή"]
         name = f"{names[(i // 6) % len(names)]} {i:02d}"
         org = f"Fictional Lab {i % 7}"
-        kind = (
-            "government_id"
-            if i in range(60, 64)
-            else "payment_card"
-            if i in range(64, 68)
-            else "not_a_card"
-            if negative
-            else "conference_badge"
-        )
         image = Image.new("RGB", (1200, 800), "#284c3d")
         d = ImageDraw.Draw(image)
         d.rounded_rectangle((60, 60, 1140, 740), radius=25, fill="#eee7d6")
         texts = (
             ["FICTIONAL DEMO CONFERENCE", name, org, "Engineer"]
             if not negative
-            else ["FICTIONAL TEST — NOT VALID", kind.replace("_", " ").upper(), "SYNTHETIC NEGATIVE FIXTURE"]
+            else ["FICTIONAL TEST — NO NAME OR COMPANY", "SYNTHETIC NEGATIVE FIXTURE"]
         )
         for n, text in enumerate(texts):
             face = ImageFont.truetype(font, 48 if n else 30) if font else ImageFont.load_default(size=40)
@@ -58,7 +49,6 @@ def main():
         labels.append(
             {
                 "image": filename,
-                "card_type": kind,
                 "name": None if negative else name,
                 "organization": None if negative else org,
                 "difficulty": "negative" if negative else "good" if variant == 0 else "hard",

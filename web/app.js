@@ -1,7 +1,7 @@
 "use strict";
 const $ = id => document.getElementById(id);
 let csrf = "", current = null, stream = null, config = null, latestCreated = 0, locked = true;
-const terminal = new Set(["COMPLETE","COMPLETE_ORG_ONLY","RETAKE","REJECTED_CARD_TYPE","FAILED","CANCELLED","EXPIRED"]);
+const terminal = new Set(["COMPLETE","COMPLETE_ORG_ONLY","RETAKE","FAILED","CANCELLED","EXPIRED"]);
 function node(tag, text, cls) { const el = document.createElement(tag); if (text) el.textContent = text; if (cls) el.className = cls; return el; }
 function notice(text) { $("notice").textContent = text; }
 async function api(path, options = {}) {
@@ -53,13 +53,12 @@ function render(job) {
   $("timeline").replaceChildren(node("strong",job.message),node("span",`${job.state.replaceAll("_"," ")} · ${job.elapsed_seconds}s${job.mock ? " · simulated" : ""}`));
   const done=terminal.has(job.state); if (done && stream) stream.close();
   $("cancel").hidden=done; $("wrong").hidden=!job.brief; $("confirm").hidden=job.state!=="AWAITING_CONFIRMATION" || !job.extraction?.organization.normalized;
-  $("correction").hidden=!job.extraction || ["RETAKE","CANCELLED","REJECTED_CARD_TYPE"].includes(job.state);
+  $("correction").hidden=!job.extraction || ["RETAKE","CANCELLED"].includes(job.state);
   if (job.extraction && !$("correction").contains(document.activeElement)) { $("person-name").value=job.extraction.name.normalized; $("person-org").value=job.extraction.organization.normalized; }
   const box=$("brief-content"); box.replaceChildren();
-  const cardConfidence=job.classification?` · Card: ${job.classification.card_type} (${Math.round(job.classification.confidence*100)}% confidence)`:"";
-  if (!job.brief) { $("confidence").hidden=!job.classification; if(job.classification)$("confidence").textContent=cardConfidence.slice(3); return; }
+  if (!job.brief) { $("confidence").hidden=true; return; }
   const b=job.brief, evidence=job.evidence;
-  $("confidence").hidden=false; $("confidence").textContent=(job.mock ? "DEMO · " : "") + ({high:"High match",medium:"Medium match",organization_only:"Organization only"}[b.confidence]) + cardConfidence;
+  $("confidence").hidden=false; $("confidence").textContent=(job.mock ? "DEMO · " : "") + ({high:"High match",medium:"Medium match",organization_only:"Organization only"}[b.confidence]);
   const title=node("h2",b.headline.text); cite(title,b.headline.source_ids,evidence); box.append(title);
   if (b.summary.length) { label(box,"Who they are"); for (const c of b.summary) { const p=node("p",c.text,"claim"); cite(p,c.source_ids,evidence); box.append(p); } }
   if (b.interests.length) { label(box,"What they work on"); const chips=node("div",null,"chips"); for (const c of b.interests) { const chip=node("div",c.text,"chip"); cite(chip,c.source_ids,evidence); chips.append(chip); } box.append(chips); }

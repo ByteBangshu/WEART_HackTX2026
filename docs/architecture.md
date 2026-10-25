@@ -21,7 +21,7 @@ States follow the brief plus `AWAITING_CONFIRMATION` and `CANCELLED`. Correction
 
 Sessions last 8 hours, pairing codes 5 minutes. The device registry persists only IDs and token hashes. Raw launcher credentials stay in an ignored local file. No history database is enabled. The ledger is process-local and resets on restart.
 
-Sources must be nonlocal HTTPS URLs outside blocked domains. The host never fetches pages: it consumes provider-returned snippets. Source/model classifications and semantic verification remain probabilistic; the independent verifier is another call to the same model, not independent ground truth.
+Sources must be nonlocal HTTPS URLs outside blocked domains. The host never fetches pages: it consumes provider-returned snippets. Source assessment and semantic verification remain probabilistic; the independent verifier is another call to the same model, not independent ground truth.
 
 The UI is buildless browser JavaScript rather than Preact/Vite. This is an intentional simplification for a small LAN tool: one origin, no frontend dependencies, no CDN, native text rendering, responsive CSS, PWA shell and SSE. Only static assets are cached. Accessibility is considered but not certified.
 

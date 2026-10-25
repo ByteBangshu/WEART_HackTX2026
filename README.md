@@ -39,7 +39,7 @@ $env:WEART_ALLOW_UNBOUNDED_SEARCH = 'true'
 
 Only Standard model IDs are accepted. Without the search opt-in, extraction runs but research degrades honestly to unavailable context. The adapter uses `muse-spark-1.3`, `store:false`, strict schemas, deadlines, bounded retries, a circuit breaker and request-cost reservations. Search usage/cost are estimates, **not guaranteed hard billing caps**. Use provider account spending controls too. [Provider facts and limitations](docs/adr/001-provider.md).
 
-No live API accuracy or latency claim has been established. Classification sends the full image to Meta; restricted extraction fields do not prevent the provider seeing incidental image contents.
+No live API accuracy or latency claim has been established. Extraction sends the full image to Meta; restricted extraction fields do not prevent the provider seeing incidental image contents.
 
 ## Phone and physical camera
 

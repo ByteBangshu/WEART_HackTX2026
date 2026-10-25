@@ -20,7 +20,6 @@ class State(StrEnum):
     COMPLETE = "COMPLETE"
     COMPLETE_ORG_ONLY = "COMPLETE_ORG_ONLY"
     RETAKE = "RETAKE"
-    REJECTED_CARD_TYPE = "REJECTED_CARD_TYPE"
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
     EXPIRED = "EXPIRED"
@@ -30,28 +29,10 @@ TERMINAL = {
     State.COMPLETE,
     State.COMPLETE_ORG_ONLY,
     State.RETAKE,
-    State.REJECTED_CARD_TYPE,
     State.FAILED,
     State.CANCELLED,
     State.EXPIRED,
 }
-CardType = Literal[
-    "conference_badge",
-    "corporate_id",
-    "business_card",
-    "government_id",
-    "payment_card",
-    "other",
-    "not_a_card",
-    "unknown",
-]
-
-
-class Classification(Model):
-    card_type: CardType
-    confidence: float = Field(ge=0, le=1)
-
-
 class CardField(Model):
     text: str = Field(max_length=160)
     normalized: str = Field(max_length=160)
@@ -59,7 +40,6 @@ class CardField(Model):
 
 
 class Extraction(Model):
-    card_type: CardType
     legibility: Literal["good", "partial", "unreadable"]
     name: CardField
     organization: CardField

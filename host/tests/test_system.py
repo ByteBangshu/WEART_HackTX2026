@@ -267,6 +267,7 @@ async def test_identity_corroboration_and_citation_validation(settings):
 
 async def test_meta_payload_schema_privacy_and_grounding(settings):
     calls = []
+    extraction = await MockAdapter(settings).extract(b"", "success", None)
 
     def handler(request):
         body = json.loads(request.content)
@@ -282,7 +283,7 @@ async def test_meta_payload_schema_privacy_and_grounding(settings):
                         "content": [
                             {
                                 "type": "output_text",
-                                "text": json.dumps({"card_type": "conference_badge", "confidence": 0.95}),
+                                "text": extraction.model_dump_json(),
                             }
                         ],
                     }
@@ -292,8 +293,8 @@ async def test_meta_payload_schema_privacy_and_grounding(settings):
 
     adapter = MetaMuseAdapter(settings, httpx.MockTransport(handler))
     budget = Budget(1, Ledger(10))
-    result = await adapter.classify(b"fake", "", budget)
-    assert result.card_type == "conference_badge"
+    result = await adapter.extract(b"fake", "", budget)
+    assert result.organization.normalized == "Example Robotics"
     payload = calls[0]
     assert payload["store"] is False and payload["text"]["format"]["strict"] is True
     assert "tools" not in payload
@@ -302,17 +303,14 @@ async def test_meta_payload_schema_privacy_and_grounding(settings):
     await adapter.close()
 
 
-async def test_card_classifier_cannot_block_extraction(settings):
-    class Spy(MockAdapter):
-        async def classify(self, *args):
-            raise AssertionError("classifier should not be called")
-
-    app = create_app(settings, Spy(settings))
+async def test_capture_has_no_card_classification(settings):
+    app = create_app(settings)
     pipeline = app.state.pipeline
     job = pipeline.add("d", "c", demo_jpeg(), "rejected")
     await job.task
     assert job.state == State.COMPLETE and job.extraction is not None
-    assert job.snapshot()["classification"] is None
+    assert "classification" not in job.snapshot()
+    assert "card_type" not in job.extraction.model_dump()
     assert all(not isinstance(value, bytes) for value in vars(job).values())
     await pipeline.close()
 

@@ -364,7 +364,7 @@ def create_app(settings=None, provider=None):
     async def correct(job_id: str, body: Correction, request: Request):
         auth(request, True)
         job = owned(request, job_id)
-        if not job.extraction or job.state in {State.REJECTED_CARD_TYPE, State.CANCELLED, State.RETAKE}:
+        if not job.extraction or job.state in {State.CANCELLED, State.RETAKE}:
             raise HTTPException(409, "No accepted extraction to correct")
         if job.task and not job.task.done():
             job.task.cancel()

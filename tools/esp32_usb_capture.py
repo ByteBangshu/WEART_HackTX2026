@@ -16,7 +16,7 @@ import serial
 ROOT = Path(__file__).resolve().parents[1]
 MAX_JPEG_BYTES = 3_000_000
 HEADER = re.compile(rb"WEART_USB_JPEG ([0-9]+)")
-TERMINAL = {"COMPLETE", "COMPLETE_ORG_ONLY", "RETAKE", "REJECTED_CARD_TYPE", "FAILED", "CANCELLED", "EXPIRED"}
+TERMINAL = {"COMPLETE", "COMPLETE_ORG_ONLY", "RETAKE", "FAILED", "CANCELLED", "EXPIRED"}
 
 
 def local_pin():
@@ -82,12 +82,6 @@ def print_summary(result):
     print(f"Job state: {result['state']}")
     if result.get("message"):
         print(result["message"])
-    classification = result.get("classification")
-    if classification:
-        print(
-            f"Card classification: {classification['card_type']} "
-            f"({classification['confidence']:.0%} confidence)"
-        )
     extraction = result.get("extraction") or {}
     if extraction:
         print(

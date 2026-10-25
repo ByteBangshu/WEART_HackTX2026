@@ -29,39 +29,35 @@ async def main():
         "hard_total": 0,
         "hard_correct": 0,
         "negative_total": 0,
-        "negative_rejected": 0,
-        "quality_retake": 0,
+        "negative_blank": 0,
+        "quality_warnings": 0,
     }
     try:
         for item in labels:
             image = (folder / item["image"]).read_bytes()
             quality = gate(image)
-            counts["quality_retake"] += bool(quality.reasons)
+            counts["quality_warnings"] += bool(quality.reasons)
             if not provider:
                 continue
             budget = Budget(settings.job_cost_cap, ledger)
-            card = await provider.classify(quality.jpeg, "", budget)
-            accepted = (
-                card.card_type in {"conference_badge", "corporate_id", "business_card"}
-                and card.confidence >= 0.8
-            )
+            extraction = await provider.extract(quality.jpeg, "", budget)
             if item["difficulty"] == "negative":
                 counts["negative_total"] += 1
-                counts["negative_rejected"] += not accepted
+                counts["negative_blank"] += not (
+                    extraction.name.normalized or extraction.organization.normalized
+                )
                 continue
             key = item["difficulty"]
             counts[key + "_total"] += 1
-            if accepted:
-                extraction = await provider.extract(quality.jpeg, "", budget)
-                counts[key + "_correct"] += (
-                    extraction.name.normalized.casefold() == item["name"].casefold()
-                    and extraction.organization.normalized.casefold() == item["organization"].casefold()
-                )
+            counts[key + "_correct"] += (
+                extraction.name.normalized.casefold() == item["name"].casefold()
+                and extraction.organization.normalized.casefold() == item["organization"].casefold()
+            )
     finally:
         if provider:
             await provider.close()
     report = {
-        "mode": "live_extraction" if args.live else "offline_gate_only",
+        "mode": "live_extraction" if args.live else "offline_image_check_only",
         "fixtures": len(labels),
         **counts,
         "note": "Offline smoke does NOT measure OCR or model safety accuracy.",
@@ -72,7 +68,7 @@ async def main():
     if args.live:
         for difficulty, target in [("good", 0.95), ("hard", 0.85), ("negative", 1.0)]:
             total = counts[difficulty + "_total"]
-            correct = counts[difficulty + ("_rejected" if difficulty == "negative" else "_correct")]
+            correct = counts[difficulty + ("_blank" if difficulty == "negative" else "_correct")]
             if not total or correct / total < target:
                 raise SystemExit(1)
 

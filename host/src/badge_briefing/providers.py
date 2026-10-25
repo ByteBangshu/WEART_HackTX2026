@@ -9,7 +9,7 @@ from datetime import date
 import httpx
 
 from .config import ROOT, Settings
-from .domain import Brief, CardField, Classification, Extraction, Research, Verification
+from .domain import Brief, CardField, Extraction, Research, Verification
 from .safety import safe_url
 
 
@@ -68,12 +68,6 @@ class MockAdapter:
     async def pause(self):
         await asyncio.sleep(self.settings.mock_delay)
 
-    async def classify(self, image, scenario, budget):
-        await self.pause()
-        return Classification(
-            card_type="government_id" if scenario == "rejected" else "conference_badge", confidence=0.99
-        )
-
     async def extract(self, image, scenario, budget):
         await self.pause()
 
@@ -81,7 +75,6 @@ class MockAdapter:
             return CardField(text=s, normalized=s, confidence=0.98)
 
         return Extraction(
-            card_type="conference_badge",
             legibility="good",
             name=f("Avery Chen"),
             organization=f("Example Robotics"),
@@ -236,7 +229,7 @@ class MetaMuseAdapter:
             "instructions": instructions,
             "input": [{"role": "user", "content": content}],
             "max_output_tokens": 4000,
-            "reasoning": {"effort": "low" if stage in {"classify", "extract"} else "medium"},
+            "reasoning": {"effort": "low" if stage == "extract" else "medium"},
             "text": {
                 "format": {
                     "type": "json_schema",
@@ -303,9 +296,6 @@ class MetaMuseAdapter:
                     ) from None
                 await asyncio.sleep(0.3 + random.random() * 0.4)
         raise ProviderError("Provider unavailable")
-
-    async def classify(self, image, scenario, budget):
-        return await self.call("classify", Classification, {}, budget, image=image)
 
     async def extract(self, image, scenario, budget):
         return await self.call("extract", Extraction, {}, budget, image=image)
