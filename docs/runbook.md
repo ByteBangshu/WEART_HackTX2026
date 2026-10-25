@@ -2,6 +2,8 @@
 
 Start with `python tools/run.py`; unlock at the printed origin using `runtime/local-config.json`. Default provider is mock. Stop with Ctrl+C. Briefs/cache vanish; device hashes persist. Changes to provider/TLS require restart. Run one Uvicorn worker only.
 
+For a real ESP32 USB capture, follow [USB capture setup](hardware.md#usb-capture-to-the-local-app). The bridge rejects mock mode to avoid returning a fictional person summary.
+
 ## Three-minute demo
 
 1. State explicitly whether this is fictional offline simulation or physical/live processing.

@@ -7,7 +7,10 @@ name = "weart-briefing"
 version = "0.1.0"
 description = "Local badge-to-professional-briefing system"
 requires-python = ">=3.12"
-dependencies = ["fastapi", "uvicorn", "pydantic>=2,<3", "httpx", "Pillow", "structlog", "PyYAML", "cryptography"]
+dependencies = [
+  "fastapi", "uvicorn", "pydantic>=2,<3", "httpx", "Pillow", "structlog",
+  "PyYAML", "cryptography", "pyserial>=3.5,<4"
+]
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-asyncio", "ruff", "mypy", "pip-audit"]
@@ -31,4 +34,3 @@ select = ["E4", "E7", "E9", "F", "I"]
 python_version = "3.12"
 ignore_missing_imports = true
 check_untyped_defs = true
-

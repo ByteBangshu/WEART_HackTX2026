@@ -1,4 +1,7 @@
 menu "WEART board configuration (must match manufacturer schematic)"
+config WEART_USB_TRANSFER
+    bool "Send captured JPEG over USB serial instead of Wi-Fi"
+    default n
 config WEART_PINS_CONFIRMED
     bool "I have verified all pin assignments against this exact board"
     default n

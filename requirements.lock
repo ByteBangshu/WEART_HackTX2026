@@ -42,6 +42,7 @@ pydantic==2.14.1
 pydantic_core==2.50.1
 Pygments==2.21.0
 pyparsing==3.3.3
+pyserial==3.5
 pytest==9.1.1
 pytest-asyncio==1.4.0
 PyYAML==6.0.3

@@ -48,6 +48,34 @@ In VS Code, run `ESP-IDF: Import ESP-IDF Project` and choose this `firmware` fol
 
 Camera driver 2.1.8 is pinned in `main/idf_component.yml`; Component Manager downloads it and its dependencies into the ignored `managed_components` directory. Keep `dependencies.lock` committed so builds use the resolved component versions. The default partition layout reserves a 3 MB factory application (no OTA slots). CI builds the unset-pin safe-mode variant; this does not validate hardware. Local firmware compilation status is recorded in verification.md.
 
+## USB capture to the local app
+
+For direct USB transfer, install the project dependencies, activate ESP-IDF, and use menuconfig to enable **WEART board configuration → Send captured JPEG over USB serial instead of Wi-Fi**. This opt-in firmware bypasses Wi-Fi and writes each button-triggered JPEG as raw bytes to the USB serial console. Build and flash the application:
+
+```text
+cd firmware
+idf.py menuconfig
+idf.py build
+idf.py -p YOUR_SERIAL_PORT app-flash
+```
+
+Start the local app in live mode in a second terminal. This sends the full captured image to Meta for processing; a person summary also uses web search, whose provider-side cost has no verified hard ceiling. Enter the key at the hidden prompt instead of putting it in shell history:
+
+```text
+read -rsp 'Meta Model API key: ' MODEL_API_KEY; printf '\n'
+export MODEL_API_KEY WEART_PROVIDER=meta WEART_ALLOW_UNBOUNDED_SEARCH=true
+.venv/bin/python tools/run.py --live
+```
+
+Keep `MODEL_API_KEY` in a private local environment; never put it in chat or firmware. After stopping the app, run `unset MODEL_API_KEY`. The bridge refuses mock mode and will not capture or submit an image unless live mode and search opt-in are enabled. In another terminal, install project dependencies if needed and start the USB-to-app bridge:
+
+```text
+.venv/bin/python -m pip install -r requirements.lock
+.venv/bin/python tools/esp32_usb_capture.py --port YOUR_SERIAL_PORT
+```
+
+When the bridge says it is listening, short-press the ESP32 capture button. It transfers the JPEG over USB, submits it to the local app, and prints the resulting sourced summary. The image comes directly from the ESP32, not a manual browser upload. To restore Wi-Fi capture, disable the USB-transfer option in menuconfig, then run `idf.py build` and `idf.py -p YOUR_SERIAL_PORT app-flash`; this app-only flash preserves NVS. USB mode is disabled by default.
+
 ## Pair
 
 1. First boot, or hold the configured button for three seconds during boot.
