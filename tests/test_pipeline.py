@@ -29,6 +29,10 @@ class FakeMuse:
 
 
 class PipelineTest(unittest.TestCase):
+    def test_api_key_uses_bearer_auth(self):
+        client = pi_pipeline.MuseSpark("test-api-key")
+        self.assertEqual(client.headers["Authorization"], "Bearer test-api-key")
+
     def test_esp32_snapshot_to_terminal(self):
         class CameraHandler(BaseHTTPRequestHandler):
             def do_GET(self):
