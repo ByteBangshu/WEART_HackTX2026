@@ -34,6 +34,31 @@ if (localStorage.getItem("weart-theme") === "dark") document.body.classList.add(
 async function action(fn) { try { await fn(); } catch (err) { notice(err.message); } }
 $("demo").onclick = () => action(async () => { const job = await api("/v1/demo?scenario=" + $("scenario").value, {method:"POST"}); watch(job.job_id); });
 $("upload").onclick = $("rescan").onclick = () => $("file").click();
+const usbButton = node("button", "Capture from ESP32", "secondary");
+usbButton.id = "usb-capture";
+usbButton.type = "button";
+$("upload").before(usbButton);
+usbButton.onclick = () => action(async () => {
+  usbButton.disabled = true;
+  try {
+    await api("/v1/usb-capture", {method:"POST"});
+    notice("Waiting for photo — press the ESP32 capture button. This can take up to two minutes.");
+    usbButton.textContent = "Waiting for ESP32…";
+    while (!locked) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const status = await api("/v1/usb-capture");
+      if (!status.running) {
+        if (status.exit_code !== 0) throw new Error("ESP32 capture failed or timed out. Check the USB connection, serial port, and host terminal, then retry.");
+        notice("ESP32 image received. Processing your briefing…");
+        await refreshJobs(true);
+        break;
+      }
+    }
+  } finally {
+    usbButton.disabled = false;
+    usbButton.textContent = "Capture from ESP32";
+  }
+});
 $("file").onchange = () => action(async () => { const file = $("file").files[0]; if (!file) return; if (file.size > 10000000) throw new Error("Choose a JPEG smaller than 10 MB."); const id = crypto.randomUUID(); const job = await api("/v1/captures", {method:"POST",headers:{"Content-Type":"image/jpeg","X-Capture-ID":id},body:file}); $("file").value=""; watch(job.job_id); });
 function watch(id) {
   if (stream) stream.close(); current = id; clearBrief();

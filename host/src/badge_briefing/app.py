@@ -3,8 +3,11 @@ import hashlib
 import hmac
 import io
 import json
+import os
 import re
 import secrets
+import subprocess
+import sys
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -87,6 +90,7 @@ def create_app(settings=None, provider=None):
     login_attempts: dict[str, tuple[float, int]] = {}
     ingestion = 0
     pending_uploads: dict[tuple[str, str], asyncio.Future] = {}
+    usb_process = None
 
     @asynccontextmanager
     async def lifespan(app):
@@ -104,6 +108,9 @@ def create_app(settings=None, provider=None):
 
         task = asyncio.create_task(cleanup())
         yield
+        if usb_process is not None and usb_process.poll() is None:
+            usb_process.terminate()
+            await asyncio.to_thread(usb_process.wait)
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
         await pipeline.close()
@@ -292,6 +299,38 @@ def create_app(settings=None, provider=None):
             pending_uploads.pop(capture_key, None)
             if not future.done():
                 future.set_result(None)
+
+    @app.post("/v1/usb-capture", status_code=202)
+    async def usb_capture(request: Request):
+        nonlocal usb_process
+        auth(request, True)
+        capacity()
+        if settings.provider != "meta":
+            raise HTTPException(409, "Start the app in live mode to capture from ESP32.")
+        if not settings.allow_unbounded_search:
+            raise HTTPException(409, "Enable web research on the host before starting an ESP32 briefing.")
+        port = os.getenv("WEART_USB_PORT", "").strip()
+        if not port:
+            raise HTTPException(409, "Set WEART_USB_PORT to the ESP32 serial port and restart the app.")
+        if usb_process is not None and usb_process.poll() is None:
+            raise HTTPException(409, "An ESP32 capture is already running.")
+        env = os.environ.copy()
+        env["WEART_PIN"] = settings.pin
+        try:
+            usb_process = subprocess.Popen(
+                [sys.executable, str(ROOT / "tools/esp32_usb_capture.py"),
+                 "--port", port, "--host", settings.origin, "--wait", "120", "--submit-only"],
+                cwd=ROOT, env=env, stdin=subprocess.DEVNULL,
+            )
+        except OSError:
+            raise HTTPException(503, "Could not start the USB capture bridge.") from None
+        return {"running": True}
+
+    @app.get("/v1/usb-capture")
+    async def usb_capture_status(request: Request):
+        auth(request, True)
+        code = usb_process.poll() if usb_process is not None else None
+        return {"running": usb_process is not None and code is None, "exit_code": code}
 
     @app.post("/v1/demo", status_code=202)
     async def demo(request: Request):

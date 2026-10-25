@@ -124,6 +124,7 @@ def main():
     parser.add_argument("--host", default="http://127.0.0.1:8765", help="Local WEART app origin")
     parser.add_argument("--wait", type=int, default=300, help="Seconds to wait for the capture button")
     parser.add_argument("--job-timeout", type=int, default=120, help="Seconds to wait for app processing")
+    parser.add_argument("--submit-only", action="store_true", help="Exit after submitting the image")
     parser.add_argument(
         "--extract-only", action="store_true", help="Allow capture without live web research"
     )
@@ -183,6 +184,8 @@ def main():
                 with args.save_image.open("xb") as image_file:
                     image_file.write(image)
                 print(f"Captured JPEG saved to {args.save_image}.")
+            if args.submit_only:
+                return
             deadline = time.monotonic() + args.job_timeout
             review_notice_shown = False
             while time.monotonic() < deadline:

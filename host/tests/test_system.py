@@ -68,6 +68,41 @@ async def test_demo_end_to_end_with_sources_and_sse(client):
     assert (await client.get(f"/v1/jobs/{job_id}/brief")).status_code == 200
 
 
+async def test_usb_capture_launch_and_duplicate_guard(client, monkeypatch):
+    settings = client.app_ref.state.settings
+    settings.provider = "meta"
+    settings.allow_unbounded_search = True
+    monkeypatch.setenv("WEART_USB_PORT", "COM5")
+    launches = []
+
+    class Process:
+        code = None
+
+        def poll(self):
+            return self.code
+
+    process = Process()
+
+    def launch(args, **kwargs):
+        launches.append(args)
+        return process
+
+    monkeypatch.setattr("badge_briefing.app.subprocess.Popen", launch)
+    assert (await client.post("/v1/usb-capture")).status_code == 202
+    assert "COM5" in launches[0]
+    assert "--submit-only" in launches[0]
+    assert (await client.post("/v1/usb-capture")).status_code == 409
+    assert (await client.get("/v1/usb-capture")).json()["running"]
+    process.code = 0
+    assert (await client.get("/v1/usb-capture")).json() == {"running": False, "exit_code": 0}
+
+
+async def test_usb_capture_requires_live_mode_and_csrf(client):
+    assert (await client.post("/v1/usb-capture")).status_code == 409
+    client.headers.pop("X-CSRF-Token")
+    assert (await client.post("/v1/usb-capture")).status_code == 403
+
+
 @pytest.mark.parametrize(
     "scenario,state",
     [
