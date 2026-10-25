@@ -1,52 +1,98 @@
-# Networking assistant prototype
+# WEART — A better first conversation
 
-**Recommended ESP32 setup:** ESP32 camera → Wi-Fi JPEG snapshot → Python on your computer → Muse Spark badge OCR → public company bio search → résumé-based advice → the same computer's terminal.
+ESP32-S3 camera → local host → Muse Spark → source-linked professional briefing on your phone. **No résumé matching.** The default is an offline **fictional demo**: the mock provider does not read badge text. Never present mock results as live research.
 
-The ESP32 only captures and serves a photo. Python and Muse Spark do the analysis. You do **not** need an Arduino board or a Raspberry Pi. An ESP32 without a camera module cannot take an image; use an ESP32-CAM or another ESP32 camera board. The *Arduino IDE* can still be used to flash ESP32 firmware if available; it does not mean using Arduino hardware.
+## Run the demo
 
-## 1. Set up the ESP32 camera
-
-Flash Espressif's `CameraWebServer` example for **your exact board model**, set your Wi-Fi name/password, and read its IP address from its serial output. Example source: https://github.com/espressif/arduino-esp32/tree/master/libraries/ESP32/examples/Camera/CameraWebServer
-
-The official example's snapshot endpoint is `http://ESP32_IP/capture`. Open that address in your computer's browser first. You should see a single JPEG picture of the badge. Adjust the card's position, lighting, focus, and camera resolution until the printed name and company are legible. Use a still snapshot; live video is unnecessary.
-
-Both ESP32 and computer must be able to communicate on the same local network. Event Wi-Fi may isolate devices; a personal hotspot can avoid that. The snapshot endpoint is normally plain HTTP on your local network, so use a trusted network for a demo.
-
-## 2. Run the pipeline on your computer
-
-Requires Python 3.9+, a Meta Model API key, and your résumé saved in plain UTF-8 text as `my_resume.txt`. No pip packages are required. In PowerShell, from the folder containing `pi_pipeline.py`:
+From this repository in PowerShell:
 
 ```powershell
-$env:MODEL_API_KEY="your-meta-model-api-key"
-python pi_pipeline.py --resume my_resume.txt --esp32-url http://ESP32_IP/capture
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.lock
+.\.venv\Scripts\python.exe tools/run.py
 ```
 
-On Linux/macOS, use `export MODEL_API_KEY='your-meta-model-api-key'` and `python3`. Replace `ESP32_IP` with the IP printed by the board. Run the command again for each card. The program downloads one photo to a temporary file, sends it and your résumé to Meta's API, prints the result, and removes the temporary photo.
+Open **http://127.0.0.1:8765**. The launcher creates `runtime/local-config.json`; use its `pin` value to unlock the UI. Keep this ignored file private. It also holds the simulator token, never the Meta key. Stop with Ctrl+C.
 
-While developing, you can skip hardware and use an existing clear image:
+Click **Try a fictional demo**. Workspace controls offer successful identity, organization-only, no-sources, and rejected-card scenarios. Correct fields, try another candidate, cancel, forget, purge, or pause captures. The UI follows new device jobs automatically. Browser storage retains only the appearance preference and static application shell.
+
+In another terminal, exercise the actual upload API and idempotency:
 
 ```powershell
-python pi_pipeline.py --resume my_resume.txt --image badge.jpg
+.\.venv\Scripts\python.exe tools/device-simulator/simulate.py --fault replay
 ```
 
-## Alternate Raspberry Pi path
+Other faults: `corrupt`, `oversize`, `slow`, `drop`. `--count 50` repeats simulated captures. This is not a physical-device soak test.
 
-The earlier Pi path still works: run `python3 pi_pipeline.py --resume my_resume.txt` directly on a Pi with `rpicam-still` or `libcamera-still`. To forward the Pi's terminal result to a second computer, run `computer_receiver.py` there and supply `--receiver` and a shared `RECEIVER_TOKEN` as in the earlier version. With ESP32, run the pipeline **on your computer**, so this receiver is unnecessary.
+## Live Meta mode
 
-## What each stage does
+Enter your key locally without echoing it:
 
-1. Muse Spark reads `name`, `company`, and optional `job_title` from the image. Missing name/company stops the run.
-2. Muse Spark searches for a public official company bio; missing bio yields no profile facts. The research prompt excludes LinkedIn.
-3. Muse Spark compares available facts with the résumé to create a short summary, overlap, two talking points, and an opening question.
-4. The result appears in the computer terminal, including the source URL or “No official bio found.”
+```powershell
+$secureKey = Read-Host 'Meta Model API key' -AsSecureString
+$env:MODEL_API_KEY = [System.Net.NetworkCredential]::new('', $secureKey).Password
+$env:WEART_PROVIDER = 'meta'
+# Accepts that built-in search has no verified hard query-cost ceiling:
+$env:WEART_ALLOW_UNBOUNDED_SEARCH = 'true'
+.\.venv\Scripts\python.exe tools/run.py --live
+```
 
-The model's research response is **not independently verified by this program**. Check the cited company page before using the talking points. Poor image quality may cause OCR errors. The name/company lookup can fail for people without published bios; this is an expected fallback, not a reason to invent facts.
+Only Standard model IDs are accepted. Without the search opt-in, extraction runs but research degrades honestly to unavailable context. The adapter uses `muse-spark-1.3`, `store:false`, strict schemas, deadlines, bounded retries, a circuit breaker and request-cost reservations. Search usage/cost are estimates, **not guaranteed hard billing caps**. Use provider account spending controls too. [Provider facts and limitations](docs/adr/001-provider.md).
 
-## Verification order
+No live API accuracy or latency claim has been established. Classification sends the full image to Meta; restricted extraction fields do not prevent the provider seeing incidental image contents.
 
-1. `python -m unittest discover -s tests -v` checks the local software and simulated ESP32 snapshot.
-2. Open `http://ESP32_IP/capture` in a browser and inspect whether the badge text is readable.
-3. Run `--image` against the live Muse Spark API.
-4. Run `--esp32-url` for the full hardware-to-terminal demo.
+## Phone and physical camera
 
-Meta Model API docs: https://dev.meta.ai/docs/quickstart and https://dev.meta.ai/docs/search-grounding
+Loopback HTTP is for development. Non-loopback serving requires TLS and an explicit private LAN IP. Use a trusted 2.4 GHz WPA2 network/hotspot without client isolation.
+
+```powershell
+# Replace this address everywhere with the host's actual private LAN IP.
+.\.venv\Scripts\python.exe tools/make_certificate.py --host 192.168.1.25
+$env:WEART_BIND = '192.168.1.25'
+$env:WEART_ORIGIN = 'https://192.168.1.25:8765'
+$env:WEART_TLS_CERT = "$PWD\runtime\tls\host.pem"
+$env:WEART_TLS_KEY = "$PWD\runtime\tls\host.key"
+.\.venv\Scripts\python.exe tools/run.py
+```
+
+Manually trust **only** `runtime/tls/ca.pem` on the phone. The camera receives that CA through its physically commissioned setup portal. Never copy `host.key` or a model key to it. Use the exact configured HTTPS origin; do not bypass certificate warnings or expose this service to the internet. Limit any firewall exception to your private LAN.
+
+Read [hardware setup](docs/hardware.md) before flashing. “ESP32-S3-CAM” is insufficient to select pins: firmware defaults to unset GPIOs and refuses camera initialization until the board mapping is confirmed.
+
+## Implemented
+
+- Async FastAPI jobs; bounded streaming JPEG ingress, per-device rate limits, capture-ID deduplication, cancellation, correction, SSE, expiry and purge.
+- Separate card classification and allowlisted extraction; government/payment/unknown-card rejection before extraction/research.
+- Size/pixel/decode checks, metadata stripping, image-quality heuristics; two-retake limit applies only to quality.
+- Grounded research, identity confidence, independent-source checks, citation validation, independent verification and one repair attempt.
+- Meta and mock adapters, memory-only briefs/cache, source-linked organization fallback and honest unavailable-context output.
+- Passphrase sessions, CSRF/origin/Host checks, hashed revocable device tokens, single-use pairing codes, TLS support, CSP, kill switch and redacted logs.
+- Phone-first responsive UI, dark mode, copy actions, sources, static-only PWA cache. No CDN or frontend build dependencies.
+- ESP-IDF source: configurable pins, PSRAM JPEG burst, protected setup AP, NVS, certificate-validated upload/retries, polling, button cancellation, RGB feedback, reconnect, watchdog, crash recovery and optional deep sleep.
+- Simulator, evaluation generator/harness, tests, pinned dependencies, CI and operating documentation.
+
+## Verify
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m ruff check host tools eval
+.\.venv\Scripts\python.exe -m mypy host/src
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+node --check web/app.js
+node --check web/sw.js
+.\.venv\Scripts\python.exe eval/generate.py
+.\.venv\Scripts\python.exe eval/evaluate.py
+.\.venv\Scripts\python.exe -m pip_audit -r requirements.lock
+```
+
+`eval/evaluate.py --live` makes billable extraction calls with your key. Offline evaluation checks image processing only, **not OCR accuracy**. The 60 fictional badges and 12 negatives are a smoke dataset, not proof of real-world safety/performance. Broader scripts, realistic negatives and a resolution benchmark remain necessary.
+
+See [verification status](docs/verification.md), [runbook](docs/runbook.md), [architecture](docs/architecture.md) and [threat model](docs/threat-model.md). A configured ESP-IDF build and 50 physical captures must pass before claiming hardware readiness. Autofocus, automatic captive-portal detection, double-press preview, battery measurement, full light sleep, BSSID caching, signed OTA, display, audio, local OCR and encrypted history remain stretch work.
+
+## Privacy
+
+Public professional information only; no face recognition, sensitive profiling, login-walled scraping or stored profiles. Images live in application memory and are released after extraction/failure; this is not cryptographic RAM erasure or a provider deletion guarantee. Results/cache expire after 30 minutes. Logs omit personal payloads.
+
+Review applicable local law (including GDPR/CCPA where relevant), event rules, and obtain consent where required. Use fictional or consenting adults for tests. Standard mode excludes training but is not zero retention. Every briefing discloses AI uncertainty. [Privacy notice](docs/privacy.md).
+
+The earlier `pi_pipeline.py` and `computer_receiver.py` remain legacy references and do not satisfy the new service's security/privacy requirements. Their [old README](docs/legacy-prototype.md) is preserved. The pre-existing résumé is unused; `.gitignore` cannot remove data already tracked in Git history.

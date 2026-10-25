@@ -1,0 +1,1 @@
+Classify ONLY the type of card and your confidence. Do not transcribe any card text. Government IDs, payment cards, non-cards, unknown and other types must not be treated as professional badges. Return unknown when uncertain.

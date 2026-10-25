@@ -1,0 +1,68 @@
+menu "WEART board configuration (must match manufacturer schematic)"
+config WEART_PINS_CONFIRMED
+    bool "I have verified all pin assignments against this exact board"
+    default n
+config WEART_CAM_D0
+    int "Camera D0 GPIO"
+    default -1
+config WEART_CAM_D1
+    int "Camera D1 GPIO"
+    default -1
+config WEART_CAM_D2
+    int "Camera D2 GPIO"
+    default -1
+config WEART_CAM_D3
+    int "Camera D3 GPIO"
+    default -1
+config WEART_CAM_D4
+    int "Camera D4 GPIO"
+    default -1
+config WEART_CAM_D5
+    int "Camera D5 GPIO"
+    default -1
+config WEART_CAM_D6
+    int "Camera D6 GPIO"
+    default -1
+config WEART_CAM_D7
+    int "Camera D7 GPIO"
+    default -1
+config WEART_CAM_XCLK
+    int "Camera XCLK GPIO"
+    default -1
+config WEART_CAM_PCLK
+    int "Camera PCLK GPIO"
+    default -1
+config WEART_CAM_VSYNC
+    int "Camera VSYNC GPIO"
+    default -1
+config WEART_CAM_HREF
+    int "Camera HREF GPIO"
+    default -1
+config WEART_CAM_SDA
+    int "Camera SCCB SDA GPIO"
+    default -1
+config WEART_CAM_SCL
+    int "Camera SCCB SCL GPIO"
+    default -1
+config WEART_CAM_PWDN
+    int "Camera power-down GPIO (-1 if absent)"
+    default -1
+config WEART_CAM_RESET
+    int "Camera reset GPIO (-1 if absent)"
+    default -1
+config WEART_BUTTON
+    int "Button GPIO, active low"
+    default -1
+config WEART_LED_R
+    int "Discrete RGB LED red GPIO (-1 disabled)"
+    default -1
+config WEART_LED_G
+    int "Discrete RGB LED green GPIO (-1 disabled)"
+    default -1
+config WEART_LED_B
+    int "Discrete RGB LED blue GPIO (-1 disabled)"
+    default -1
+config WEART_DEEP_SLEEP
+    bool "Enable deep sleep after 5 idle minutes (RTC button GPIO required)"
+    default n
+endmenu

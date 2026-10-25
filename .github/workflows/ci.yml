@@ -1,0 +1,40 @@
+name: Verify WEART
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  host:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -r requirements.lock
+      - run: python -m ruff check host tools eval
+      - run: python -m mypy host/src
+      - run: python -m pytest -q
+      - run: python -m unittest discover -s tests -v
+      - run: python eval/generate.py
+      - run: python eval/evaluate.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --check web/app.js
+      - run: node --check web/sw.js
+      - run: python -m pip_audit -r requirements.lock
+  firmware:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.5
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          . /opt/esp/idf/export.sh
+          cd firmware
+          idf.py set-target esp32s3
+          idf.py build
