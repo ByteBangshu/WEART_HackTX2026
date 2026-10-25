@@ -5,6 +5,7 @@ import random
 import time
 from dataclasses import dataclass, field
 from datetime import date
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -19,6 +20,16 @@ class ProviderError(Exception):
 
 class BudgetExceeded(ProviderError):
     pass
+
+
+class SearchDisabled(ProviderError):
+    pass
+
+
+def source_key(url: str) -> tuple[str, str]:
+    parsed = urlsplit(url)
+    host = (parsed.hostname or "").removeprefix("www.")
+    return host, parsed.path.rstrip("/") or "/"
 
 
 @dataclass
@@ -198,7 +209,7 @@ class MetaMuseAdapter:
         if time.monotonic() < self.open_until:
             raise ProviderError("Provider circuit temporarily open")
         if search and not self.settings.allow_unbounded_search:
-            raise ProviderError(
+            raise SearchDisabled(
                 "Live search requires explicit acceptance of its unbounded provider-side query cost"
             )
         if search and budget.searches >= self.settings.max_search_calls:
@@ -272,25 +283,60 @@ class MetaMuseAdapter:
                 parsed = model.model_validate_json("".join(pieces))
                 if isinstance(parsed, Research):
                     # Model-authored URLs alone are insufficient. Retain actual retrieved snippets.
-                    sources = {
-                        safe_url(x.get("url", "")): x
-                        for item in body.get("output", [])
+                    calls = [
+                        item for item in body.get("output", [])
                         if item.get("type") == "web_search_call"
-                        for x in item.get("results", [])
-                    }
+                    ]
+                    if not calls and attempt == 0:
+                        content[0]["text"] += (
+                            "\nThis is a source verification request. Run live web search for the exact "
+                            "name and organization before returning any candidate or evidence."
+                        )
+                        continue
+                    sources: dict[str, dict] = {}
+                    canonical: dict[tuple[str, str], str | None] = {}
+                    for item in calls:
+                        for hit in item.get("results") or []:
+                            url = safe_url(hit.get("url", ""))
+                            if not url or not hit.get("snippet"):
+                                continue
+                            sources[url] = hit
+                            key = source_key(url)
+                            if key in canonical and canonical[key] != url:
+                                canonical[key] = None
+                            elif key not in canonical:
+                                canonical[key] = url
                     grounded = []
                     for e in parsed.evidence:
-                        hit = sources.get(safe_url(e.url))
+                        url = safe_url(e.url)
+                        matched_url = url if url in sources else canonical.get(source_key(url)) if url else None
+                        hit = sources.get(matched_url) if matched_url else None
                         if hit and hit.get("snippet"):
-                            grounded.append(e.model_copy(update={"snippet": str(hit["snippet"])[:1600]}))
+                            grounded.append(
+                                e.model_copy(
+                                    update={
+                                        "url": matched_url,
+                                        "title": str(hit.get("title") or "")[:250],
+                                        "snippet": str(hit["snippet"])[:1600],
+                                    }
+                                )
+                            )
                     parsed.evidence = grounded
+                    if not calls:
+                        parsed._grounding_status = "provider_skipped_web_search"
+                    elif not sources:
+                        parsed._grounding_status = "web_search_no_snippets"
+                    elif not grounded:
+                        parsed._grounding_status = "web_search_sources_unmatched"
                 self.failures = 0
                 return parsed
-            except (httpx.HTTPError, ValueError, ProviderError):
+            except (httpx.HTTPError, ValueError, ProviderError) as exc:
                 self.failures += 1
                 if self.failures >= 4:
                     self.open_until = time.monotonic() + 30
                 if attempt:
+                    if isinstance(exc, ProviderError):
+                        raise exc
                     raise ProviderError(
                         "Provider request failed or returned invalid structured data"
                     ) from None

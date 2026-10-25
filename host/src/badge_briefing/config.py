@@ -18,7 +18,7 @@ class Settings(BaseModel):
     origin: str = "http://127.0.0.1:8765"
     api_key: str = ""
     ttl_seconds: int = Field(default=1800, ge=30, le=86400)
-    job_timeout: float = Field(default=60, gt=0, le=120)
+    job_timeout: float = Field(default=90, gt=0, le=120)
     stage_timeout: float = Field(default=18, gt=0, le=60)
     rate_seconds: float = Field(default=5, ge=0)
     max_jobs: int = Field(default=50, ge=1, le=500)

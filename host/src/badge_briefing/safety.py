@@ -42,6 +42,21 @@ def domain(url: str) -> str:
     return ".".join(parts[-2:])
 
 
+def normalize_org(value: str) -> str:
+    words = re.sub(r"[^\w\s]", " ", value.casefold()).split()
+    while words and words[-1] in {
+        "corporation", "corp", "incorporated", "inc", "limited", "ltd", "llc"
+    }:
+        words.pop()
+    return " ".join(words)
+
+
+def org_in_text(organization: str, snippet: str) -> bool:
+    name = normalize_org(organization)
+    text = re.sub(r"[^\w\s]", " ", snippet.casefold())
+    return bool(name and re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", text))
+
+
 def resolve(research: Research, extraction: Extraction, excluded: list[str]):
     evidence = {}
     urls = set()
@@ -58,25 +73,27 @@ def resolve(research: Research, extraction: Extraction, excluded: list[str]):
         return " ".join(s.casefold().split())
 
     for c in sorted(research.candidates, key=lambda x: x.score, reverse=True):
-        if not extraction.name.normalized.strip() or extraction.name.confidence < 0.7:
+        if not extraction.name.normalized.strip():
             break
         if c.id in excluded or normalize(c.name) != normalize(extraction.name.normalized):
             continue
-        if normalize(c.organization) != normalize(extraction.organization.normalized):
+        if normalize_org(c.organization) != normalize_org(extraction.organization.normalized):
             continue
         supporting = [
             evidence[x]
             for x in c.source_ids
             if x in evidence
             and evidence[x].subject == "person"
-            and normalize(c.name) in normalize(evidence[x].snippet)
-            and normalize(c.organization) in normalize(evidence[x].snippet)
+            and normalize(c.name) in normalize(evidence[x].title + " " + evidence[x].snippet)
+            and org_in_text(c.organization, evidence[x].title + " " + evidence[x].snippet)
         ]
-        if not supporting or c.score < 0.65:
+        if not supporting or c.score < 0.55:
             continue
         strong = any(x.reliability == "primary" for x in supporting)
         independent = len({domain(x.url) for x in supporting}) >= 2
-        role_supported = c.role and sum(normalize(c.role) in normalize(x.snippet) for x in supporting) >= 2
+        role_supported = c.role and sum(
+            normalize(c.role) in normalize(x.title + " " + x.snippet) for x in supporting
+        ) >= 2
         if independent and role_supported and c.score >= 0.85:
             confidence = "high"
         elif strong:

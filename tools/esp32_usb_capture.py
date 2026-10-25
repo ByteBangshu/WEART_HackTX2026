@@ -125,6 +125,9 @@ def main():
     parser.add_argument("--wait", type=int, default=300, help="Seconds to wait for the capture button")
     parser.add_argument("--job-timeout", type=int, default=120, help="Seconds to wait for app processing")
     parser.add_argument(
+        "--extract-only", action="store_true", help="Allow capture without live web research"
+    )
+    parser.add_argument(
         "--save-image", type=Path, help="Save the captured JPEG here after the app accepts it"
     )
     args = parser.parse_args()
@@ -146,6 +149,11 @@ def main():
             session = client.get("/v1/session")
             session.raise_for_status()
             if not session.json().get("search_enabled"):
+                if not args.extract_only:
+                    raise SystemExit(
+                        "Web research is off on the host. Enable WEART_ALLOW_UNBOUNDED_SEARCH=true "
+                        "and restart it for a sourced briefing, or use --extract-only to test reading text."
+                    )
                 print("Search is off: testing image extraction only; sourced briefing may be unavailable.")
 
             port = serial.Serial(port=None, baudrate=115200, timeout=0.5)

@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
 
 class Model(BaseModel):
@@ -74,6 +74,7 @@ class Candidate(Model):
 
 
 class Research(Model):
+    _grounding_status: str | None = PrivateAttr(default=None)
     candidates: list[Candidate] = Field(max_length=6)
     evidence: list[Evidence] = Field(max_length=12)
     risk_flags: list[str] = Field(max_length=8)

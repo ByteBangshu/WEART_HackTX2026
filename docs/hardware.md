@@ -67,7 +67,7 @@ export MODEL_API_KEY WEART_PROVIDER=meta WEART_ALLOW_UNBOUNDED_SEARCH=true
 .venv/bin/python tools/run.py --live
 ```
 
-Keep `MODEL_API_KEY` in a private local environment; never put it in chat or firmware. After stopping the app, run `unset MODEL_API_KEY`. The bridge refuses mock mode. Search opt-in is optional for testing extraction from a badge or handwritten note; sourced briefings need it. In another terminal, install project dependencies if needed and start the USB-to-app bridge:
+Keep `MODEL_API_KEY` in a private local environment; never put it in chat or firmware. After stopping the app, run `unset MODEL_API_KEY`. The bridge refuses mock mode. It also requires web research for a full briefing; add `--extract-only` when you intentionally want to test reading a badge or handwritten note without search. In another terminal, install project dependencies if needed and start the USB-to-app bridge:
 
 ```text
 .venv/bin/python -m pip install -r requirements.lock

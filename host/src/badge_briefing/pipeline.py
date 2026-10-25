@@ -9,7 +9,7 @@ import structlog
 from .config import Settings
 from .domain import TERMINAL, Brief, Claim, Extraction, State
 from .ports import Provider
-from .providers import Budget, Ledger
+from .providers import Budget, BudgetExceeded, Ledger, ProviderError, SearchDisabled
 from .quality import gate
 from .safety import resolve, validate_brief
 
@@ -175,7 +175,17 @@ class Pipeline:
                     else "Individual not verified; checking organization context",
                 )
                 if not evidence:
-                    self.fallback(job, "No usable professional sources were found.")
+                    if research._grounding_status == "provider_skipped_web_search":
+                        reason = "The provider did not run web search; no sourced claims can be shown."
+                    elif research._grounding_status == "web_search_no_snippets":
+                        reason = "Web search returned no usable source excerpts."
+                    elif research._grounding_status == "web_search_sources_unmatched":
+                        reason = "Retrieved source URLs did not match the model's cited URLs."
+                    elif research.evidence:
+                        reason = "Sources did not corroborate the extracted person and organization."
+                    else:
+                        reason = "No usable professional sources were found."
+                    self.fallback(job, reason)
                     return
                 context = {
                     "candidate": candidate.model_dump() if candidate else None,
@@ -197,6 +207,15 @@ class Pipeline:
                             (brief.starters[0].text if brief.starters else "See briefing on phone")[:165],
                         ]
                         job.brief = brief
+                        if not candidate and len(brief.caveats) < 8:
+                            if job.extraction.name.confidence < 0.7:
+                                brief.caveats.append(
+                                    "The name was read with low confidence, and the available sources did not verify the person."
+                                )
+                            else:
+                                brief.caveats.append(
+                                    "The extracted name and organization did not meet the source checks for a person match."
+                                )
                         self.completed += 1
                         job.emit(
                             State.COMPLETE if candidate else State.COMPLETE_ORG_ONLY,
@@ -213,6 +232,22 @@ class Pipeline:
             raise
         except TimeoutError:
             self.fallback(job, "Research time limit reached; no unverified person claims are shown.")
+        except SearchDisabled:
+            self.fallback(
+                job,
+                "Web research is off. Enable WEART_ALLOW_UNBOUNDED_SEARCH=true on the host and restart it for sourced briefings.",
+            )
+        except BudgetExceeded:
+            if job.extraction:
+                self.fallback(job, "The research cost budget was exhausted.")
+            else:
+                job.emit(State.FAILED, "The image-processing cost budget was exhausted.")
+        except ProviderError as exc:
+            self.failed += 1
+            if job.extraction:
+                self.fallback(job, "Provider stage failed: " + str(exc))
+            else:
+                job.emit(State.FAILED, "Image extraction failed: " + str(exc))
         except Exception:
             # No exception text: provider errors could contain image data or personal content.
             self.failed += 1
