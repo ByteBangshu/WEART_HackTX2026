@@ -1,0 +1,69 @@
+Preetham Reddy Guduri
+
+Education
+
+University of Texas at Dallas — Richardson, TX  
+Bachelor of Science in Computer Science | Aug. 2025 – May 2028
+
+Relevant Coursework: Data Structures & Algorithms, Operating Systems, Unix Programming, Computer Architecture
+
+Technical Skills
+
+- Languages: C, C++, Rust, Python, Bash, MIPS, Go, Java
+- Concepts: Computer Architecture, Bare Metal Programming, RTOS, Memory Management, Operating Systems
+- Tools: Linux, Unix, SSH, Git, GitHub, Hugging Face, PyTorch, CUDA, GDB, Valgrind, CMake, Embassy, Tokio
+- Hardware: STM32 (Cortex-M4), ARM Architecture, UART
+
+Projects
+
+EdgeTransit — Realtime Edge ML Transit Classifier
+
+Technologies: Python, C++, PyTorch, CUDA, STM32, UART  
+GitHub: https://github.com/Guduly/edgetransit
+
+- Trained a 3-class neural network model on 482K+ bus stop events using PyTorch and CUDA GPU acceleration, achieving 98.9% validation accuracy.
+- Built a custom C++ inference engine for STM32 microcontroller, generating 0.13ms average latency within an 18KB Flash and 328-byte SRAM footprint.
+- Streamed via Python-UART pipeline to validate MCU inference across 250K+ held-out bus stop events.
+
+STrack — Bare Metal Hardware Profiler
+
+Technologies: Rust, STM32  
+GitHub: https://github.com/Guduly/STrack
+
+- Built a bare-metal CPU and SRAM profiler for STM32 device, measuring CPU cycles and SRAM usage with 378-cycle overhead (23.6µs).
+- Achieved a 620-byte SRAM footprint and <0.14% per-poll cycle budget impact, enabling non-intrusive continuous profiling on resource-constrained embedded targets.
+
+Seep — Terminal Messaging Aggregator
+
+Technologies: Rust, Go, SQLite  
+GitHub: https://github.com/Guduly/seep
+
+- Architected a two-process IPC system separating a Rust TUI from a Go WhatsApp bridge over Unix domain sockets.
+- Implemented bidirectional asynchronous communication with Tokio and mpsc event handling for concurrent message streams and event-driven UI updates.
+- Decoupled authentication state from the message pipeline by persisting QR session tokens in SQLite, enabling seamless reconnection without user re-authentication.
+
+Experience
+
+Undergraduate Researcher
+
+University of Texas at Dallas — Richardson, TX  
+Technologies: Python, LangChain, LLMs (AI) | Aug. 2025 – Dec. 2025
+
+- Collaborated with peers in project proposals and development under Prof. Hossain.
+- Designed a multi-agent Solver–Critic–Arbiter workflow for automated testcase generation in Python and LangChain with HuggingFace API.
+- Reviewed 25+ papers on LLM-based test generation, synthesizing findings to develop research scope and experimental methodology.
+
+Software Engineer Intern
+
+C2S Technologies Inc. — Remote  
+Technologies: Python, HTML, CSS, JavaScript | July 2024 – Sept. 2024
+
+- Developed a responsive web UI/UX for production in HTML, CSS, and JavaScript.
+- Integrated the Google Translate API into a Python backend to automate multilingual translation under Agile practices.
+- Collaborated with marketing and finance stakeholders to define MVP requirements and project scope under Agile development practices.
+
+Competitions & Merits
+
+- Recipient: England Family Scholarship in Engineering and Computer Science | June 2026
+- Top 7%: Team Binary Bushcampers, PicoCTF | March 2026
+- Top 7 Finalist: Verizon Smart Campus Contest | February 2026
