@@ -10,8 +10,8 @@ from urllib.parse import urlsplit
 import httpx
 
 from .config import ROOT, Settings
-from .domain import Brief, CardField, Extraction, Research, Verification
-from .safety import safe_url
+from .domain import Brief, CardField, Evidence, Extraction, Research, Verification
+from .safety import normalize_org, official_org_domain, org_in_text, safe_url
 
 
 class ProviderError(Exception):
@@ -254,6 +254,7 @@ class MetaMuseAdapter:
             payload.update(
                 tools=[{"type": "web_search", "search_context_size": "medium"}],
                 include=["web_search_call.results"],
+                max_tool_calls=self.settings.max_search_calls,
             )
         for attempt in range(2):
             # Conservative admission reservation. Built-in search may exceed its reserved estimate;
@@ -298,7 +299,7 @@ class MetaMuseAdapter:
                     for item in calls:
                         for hit in item.get("results") or []:
                             url = safe_url(hit.get("url", ""))
-                            if not url or not hit.get("snippet"):
+                            if not url or not (hit.get("snippet") or hit.get("title")):
                                 continue
                             sources[url] = hit
                             key = source_key(url)
@@ -307,27 +308,96 @@ class MetaMuseAdapter:
                             elif key not in canonical:
                                 canonical[key] = url
                     grounded = []
+                    title_only = False
                     for e in parsed.evidence:
                         url = safe_url(e.url)
                         matched_url = url if url in sources else canonical.get(source_key(url)) if url else None
                         hit = sources.get(matched_url) if matched_url else None
-                        if hit and hit.get("snippet"):
+                        if hit:
+                            title = str(hit.get("title") or "")[:250]
+                            snippet = str(hit.get("snippet") or "")[:1600]
+                            if not snippet:
+                                title_only = True
+                                snippet = "Search result title: " + title
                             grounded.append(
                                 e.model_copy(
                                     update={
                                         "url": matched_url,
-                                        "title": str(hit.get("title") or "")[:250],
-                                        "snippet": str(hit["snippet"])[:1600],
+                                        "title": title,
+                                        "snippet": snippet,
                                     }
                                 )
                             )
+                    card = data.get("card", {})
+                    name = card.get("name", {}).get("normalized", "")
+                    organization = card.get("organization", {}).get("normalized", "")
+                    fallback_ids = []
+                    original_grounded_ids = {e.id for e in grounded}
+                    person_corroborated = any(
+                        e.subject == "person"
+                        and org_in_text(name, e.title + " " + e.snippet)
+                        and (
+                            org_in_text(organization, e.title + " " + e.snippet)
+                            or official_org_domain(organization, e.url)
+                        )
+                        for e in grounded
+                    )
+                    if name and organization and not person_corroborated:
+                        used = set(original_grounded_ids)
+                        for url, hit in sources.items():
+                            title = str(hit.get("title") or "")[:250]
+                            snippet = str(hit.get("snippet") or "")[:1600]
+                            source_text = title + " " + snippet
+                            if not org_in_text(name, source_text) or not (
+                                org_in_text(organization, source_text)
+                                or official_org_domain(organization, url)
+                            ):
+                                continue
+                            next_id = next(
+                                (f"e{n}" for n in range(1, 13) if f"e{n}" not in used),
+                                None,
+                            )
+                            if not next_id:
+                                break
+                            used.add(next_id)
+                            fallback_ids.append(next_id)
+                            grounded.append(
+                                Evidence(
+                                    id=next_id,
+                                    url=url,
+                                    title=title,
+                                    publisher=(urlsplit(url).hostname or "")[:160],
+                                    date=None,
+                                    category="role",
+                                    reliability="primary"
+                                    if official_org_domain(organization, url)
+                                    else "secondary",
+                                    snippet=snippet or "Search result title: " + title,
+                                    subject="person",
+                                )
+                            )
+                            if len(grounded) >= 12:
+                                break
+                    if fallback_ids:
+                        for candidate in parsed.candidates:
+                            if candidate.name.casefold() == name.casefold() and normalize_org(
+                                candidate.organization
+                            ) == normalize_org(organization):
+                                candidate.source_ids = [
+                                    *[sid for sid in candidate.source_ids if sid in original_grounded_ids],
+                                    *fallback_ids,
+                                ][:12]
                     parsed.evidence = grounded
                     if not calls:
                         parsed._grounding_status = "provider_skipped_web_search"
                     elif not sources:
-                        parsed._grounding_status = "web_search_no_snippets"
+                        parsed._grounding_status = "web_search_no_source_text"
                     elif not grounded:
                         parsed._grounding_status = "web_search_sources_unmatched"
+                    elif fallback_ids:
+                        parsed._grounding_status = "raw_result_fallback"
+                    elif title_only:
+                        parsed._grounding_status = "title_only_grounding"
                 self.failures = 0
                 return parsed
             except (httpx.HTTPError, ValueError, ProviderError) as exc:

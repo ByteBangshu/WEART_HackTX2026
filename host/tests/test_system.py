@@ -343,6 +343,36 @@ async def test_unreadable_organization_can_be_corrected(client):
     assert data["extraction"]["organization"]["normalized"] == "Example Robotics"
 
 
+async def test_partial_image_text_waits_for_name_and_company_review(client):
+    class Partial(MockAdapter):
+        async def extract(self, image, scenario, budget):
+            extracted = await super().extract(image, scenario, budget)
+            extracted.name.text = extracted.name.normalized = "Tim Coo"
+            extracted.name.confidence = 0.6
+            extracted.organization.text = extracted.organization.normalized = "Apple In"
+            extracted.organization.confidence = 0.6
+            extracted.legibility = "partial"
+            return extracted
+
+    client.app_ref.state.pipeline.provider = Partial(client.app_ref.state.settings)
+    job_id = await demo(client)
+    for _ in range(100):
+        if client.app_ref.state.pipeline.jobs[job_id].state == State.AWAITING_CONFIRMATION:
+            break
+        await asyncio.sleep(0.01)
+    job = client.app_ref.state.pipeline.jobs[job_id]
+    assert job.state == State.AWAITING_CONFIRMATION
+    assert "correct any missing letters" in job.message
+    response = await client.patch(
+        f"/v1/jobs/{job_id}/extraction",
+        json={"name": "Tim Cook", "organization": "Apple"},
+    )
+    assert response.status_code == 200
+    data = await result(client, job_id)
+    assert data["extraction"]["name"]["normalized"] == "Tim Cook"
+    assert data["extraction"]["organization"]["normalized"] == "Apple"
+
+
 async def test_failed_verification_repairs_once_then_degrades(settings):
     from badge_briefing.domain import Verification
 
@@ -357,8 +387,10 @@ async def test_failed_verification_repairs_once_then_degrades(settings):
     app = create_app(settings, provider)
     job = app.state.pipeline.add("d", "c", demo_jpeg())
     await job.task
-    assert provider.count == 2 and job.state == State.COMPLETE_ORG_ONLY
-    assert not job.brief.summary
+    assert provider.count == 2 and job.state == State.COMPLETE
+    assert job.brief.confidence == "medium"
+    assert job.brief.interests == [] and job.brief.starters == []
+    assert job.brief.summary[0].source_ids == [job.evidence[0].id]
     await app.state.pipeline.close()
 
 

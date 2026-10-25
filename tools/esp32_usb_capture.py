@@ -184,10 +184,14 @@ def main():
                     image_file.write(image)
                 print(f"Captured JPEG saved to {args.save_image}.")
             deadline = time.monotonic() + args.job_timeout
+            review_notice_shown = False
             while time.monotonic() < deadline:
                 status = client.get(f"/v1/jobs/{job_id}")
                 status.raise_for_status()
                 result = status.json()
+                if result["state"] == "AWAITING_CONFIRMATION" and not review_notice_shown:
+                    print("Review the extracted name and organization in the website to continue.")
+                    review_notice_shown = True
                 if result["state"] in TERMINAL:
                     break
                 time.sleep(0.5)

@@ -48,8 +48,9 @@ async def test_invasive_synthesis_never_published():
     app = create_app(settings(), Hostile(settings()))
     job = app.state.pipeline.add("d", "a", demo_jpeg())
     await job.task
-    assert job.state == State.COMPLETE_ORG_ONLY
+    assert job.state == State.COMPLETE
     assert "where you live" not in job.brief.model_dump_json()
+    assert not job.brief.interests and not job.brief.starters
     await app.state.pipeline.close()
 
 
@@ -137,6 +138,139 @@ async def test_retrieved_source_url_variants_remain_grounded():
     assert len(actual.evidence) == 1
     assert actual.evidence[0].url == "https://example.com/team/avery"
     assert actual.evidence[0].snippet == "Avery Chen works at Example Robotics."
+    await adapter.close()
+
+
+async def test_title_only_search_result_does_not_trust_model_snippet():
+    config = settings(allow_unbounded_search=True)
+    mock = MockAdapter(config)
+    extraction = await mock.extract(b"", "success", None)
+    research = await mock.research(extraction, [], None)
+    research.evidence = research.evidence[:1]
+    research.evidence[0].snippet = "Model-authored unsupported biography text"
+
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={
+                "status": "completed",
+                "output": [
+                    {
+                        "type": "web_search_call",
+                        "results": [
+                            {
+                                "url": research.evidence[0].url,
+                                "title": "Avery Chen at Example Robotics",
+                                "snippet": "",
+                            }
+                        ],
+                    },
+                    {
+                        "type": "message",
+                        "content": [{"type": "output_text", "text": research.model_dump_json()}],
+                    },
+                ],
+            },
+        )
+
+    adapter = MetaMuseAdapter(config, httpx.MockTransport(handler))
+    actual = await adapter.research(extraction, [], Budget(1, Ledger(5)))
+    assert actual._grounding_status == "title_only_grounding"
+    assert actual.evidence[0].snippet == "Search result title: Avery Chen at Example Robotics"
+    assert "unsupported biography" not in actual.evidence[0].snippet
+    await adapter.close()
+
+
+async def test_unmatched_model_url_uses_retrieved_official_result_for_identity():
+    config = settings(allow_unbounded_search=True)
+    mock = MockAdapter(config)
+    extraction = await mock.extract(b"", "success", None)
+    extraction.name.text = extraction.name.normalized = "Tim Cook"
+    extraction.organization.text = extraction.organization.normalized = "Apple"
+    research = await mock.research(await mock.extract(b"", "success", None), [], None)
+    research.candidates[0].name = "Tim Cook"
+    research.candidates[0].organization = "Apple Inc."
+    research.evidence[0].url = "https://example.net/unmatched-model-url"
+    research.evidence = research.evidence[:1]
+
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={
+                "status": "completed",
+                "output": [
+                    {
+                        "type": "web_search_call",
+                        "results": [
+                            {
+                                "url": "https://www.apple.com/leadership/tim-cook/",
+                                "title": "Tim Cook - Apple",
+                                "snippet": "",
+                            }
+                        ],
+                    },
+                    {
+                        "type": "message",
+                        "content": [{"type": "output_text", "text": research.model_dump_json()}],
+                    },
+                ],
+            },
+        )
+
+    adapter = MetaMuseAdapter(config, httpx.MockTransport(handler))
+    actual = await adapter.research(extraction, [], Budget(1, Ledger(5)))
+    candidate, confidence, evidence = resolve(actual, extraction, [])
+    assert actual._grounding_status == "raw_result_fallback"
+    assert candidate is not None and confidence == "medium"
+    assert evidence[0].url == "https://www.apple.com/leadership/tim-cook/"
+    assert evidence[0].snippet == "Search result title: Tim Cook - Apple"
+    await adapter.close()
+
+
+async def test_name_only_secondary_evidence_does_not_block_official_fallback():
+    config = settings(allow_unbounded_search=True)
+    mock = MockAdapter(config)
+    extraction = await mock.extract(b"", "success", None)
+    extraction.name.text = extraction.name.normalized = "Tim Cook"
+    extraction.organization.text = extraction.organization.normalized = "Apple"
+    research = await mock.research(await mock.extract(b"", "success", None), [], None)
+    research.candidates[0].name = "Tim Cook"
+    research.candidates[0].organization = "Apple Inc."
+    research.evidence = research.evidence[:1]
+    research.evidence[0].url = "https://example.org/tim-cook"
+    research.evidence[0].reliability = "secondary"
+
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={
+                "status": "completed",
+                "output": [
+                    {
+                        "type": "web_search_call",
+                        "results": [
+                            {"url": "https://example.org/tim-cook", "title": "Tim Cook", "snippet": ""},
+                            {
+                                "url": "https://www.apple.com/leadership/tim-cook/",
+                                "title": "Tim Cook - Apple",
+                                "snippet": "",
+                            },
+                        ],
+                    },
+                    {
+                        "type": "message",
+                        "content": [{"type": "output_text", "text": research.model_dump_json()}],
+                    },
+                ],
+            },
+        )
+
+    adapter = MetaMuseAdapter(config, httpx.MockTransport(handler))
+    actual = await adapter.research(extraction, [], Budget(1, Ledger(5)))
+    candidate, confidence, evidence = resolve(actual, extraction, [])
+    assert actual._grounding_status == "raw_result_fallback"
+    assert candidate is not None and confidence == "medium"
+    assert len(evidence) == 2
     await adapter.close()
 
 

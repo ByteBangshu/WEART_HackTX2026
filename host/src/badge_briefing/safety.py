@@ -57,6 +57,13 @@ def org_in_text(organization: str, snippet: str) -> bool:
     return bool(name and re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", text))
 
 
+def official_org_domain(organization: str, url: str) -> bool:
+    slug = normalize_org(organization).replace(" ", "")
+    host = (urlsplit(url).hostname or "").lower().removeprefix("www.")
+    parts = host.split(".")
+    return bool(slug and len(parts) >= 2 and parts[-2] == slug)
+
+
 def resolve(research: Research, extraction: Extraction, excluded: list[str]):
     evidence = {}
     urls = set()
@@ -85,7 +92,10 @@ def resolve(research: Research, extraction: Extraction, excluded: list[str]):
             if x in evidence
             and evidence[x].subject == "person"
             and normalize(c.name) in normalize(evidence[x].title + " " + evidence[x].snippet)
-            and org_in_text(c.organization, evidence[x].title + " " + evidence[x].snippet)
+            and (
+                org_in_text(c.organization, evidence[x].title + " " + evidence[x].snippet)
+                or official_org_domain(c.organization, evidence[x].url)
+            )
         ]
         if not supporting or c.score < 0.55:
             continue

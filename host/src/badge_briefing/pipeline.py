@@ -144,10 +144,15 @@ class Pipeline:
                             "Organization could not be read. Enter it below to continue.",
                         )
                         await job.confirmed.wait()
-                    if self.settings.require_confirmation:
+                    elif (
+                        self.settings.require_confirmation
+                        or job.extraction.legibility != "good"
+                        or job.extraction.name.confidence < 0.75
+                        or job.extraction.organization.confidence < 0.75
+                    ):
                         job.emit(
                             State.AWAITING_CONFIRMATION,
-                            "Confirm or correct the extracted name and organization",
+                            "Review the extracted name and organization; correct any missing letters before research",
                         )
                         await job.confirmed.wait()
                 if not job.extraction:
@@ -166,6 +171,10 @@ class Pipeline:
                         research.model_copy(deep=True),
                     )
                 candidate, confidence, evidence = resolve(research, job.extraction, job.excluded)
+                if candidate and research._grounding_status in {
+                    "title_only_grounding", "raw_result_fallback"
+                }:
+                    confidence = "medium"
                 job.candidate = candidate.id if candidate else None
                 job.evidence = evidence
                 job.emit(
@@ -177,10 +186,12 @@ class Pipeline:
                 if not evidence:
                     if research._grounding_status == "provider_skipped_web_search":
                         reason = "The provider did not run web search; no sourced claims can be shown."
-                    elif research._grounding_status == "web_search_no_snippets":
-                        reason = "Web search returned no usable source excerpts."
+                    elif research._grounding_status == "web_search_no_source_text":
+                        reason = "Web search returned no usable source titles or excerpts."
                     elif research._grounding_status == "web_search_sources_unmatched":
                         reason = "Retrieved source URLs did not match the model's cited URLs."
+                    elif research._grounding_status == "title_only_grounding":
+                        reason = "Search returned titles only; they did not corroborate the person and organization."
                     elif research.evidence:
                         reason = "Sources did not corroborate the extracted person and organization."
                     else:
@@ -207,6 +218,10 @@ class Pipeline:
                             (brief.starters[0].text if brief.starters else "See briefing on phone")[:165],
                         ]
                         job.brief = brief
+                        if research._grounding_status == "title_only_grounding" and len(brief.caveats) < 8:
+                            brief.caveats.append(
+                                "Some sources supplied only titles, so the briefing is limited to facts those titles support."
+                            )
                         if not candidate and len(brief.caveats) < 8:
                             if job.extraction.name.confidence < 0.7:
                                 brief.caveats.append(
@@ -269,7 +284,33 @@ class Pipeline:
             )
 
     def fallback(self, job, reason):
-        # Fail closed: research snippets alone are not treated as verified summaries.
+        person_source = next(
+            (e for e in job.evidence if e.subject == "person"), None
+        ) if job.candidate and job.extraction else None
+        if person_source:
+            name = job.extraction.name.normalized
+            organization = job.extraction.organization.normalized
+            source_ids = [person_source.id]
+            job.evidence = [person_source]
+            job.brief = Brief(
+                headline=Claim(text=f"{name} · {organization}", source_ids=source_ids),
+                summary=[
+                    Claim(
+                        text=f"A public source connects {name} with {organization}. Current role and recent work were not verified.",
+                        source_ids=source_ids,
+                    )
+                ],
+                interests=[],
+                starters=[],
+                organization_snapshot=None,
+                confidence="medium",
+                caveats=[reason, "Limited to a source-confirmed name and organization."],
+                could_not_verify=["Current role", "Recent professional work"],
+                device_lines=[f"{name} · {organization}"[:70], "See phone for limited context"],
+            )
+            job.emit(State.COMPLETE, "Limited person briefing ready")
+            return
+        # Research snippets alone are not treated as verified summaries.
         job.evidence = []
         job.brief = Brief(
             headline=Claim(text="Professional context unavailable", source_ids=[]),

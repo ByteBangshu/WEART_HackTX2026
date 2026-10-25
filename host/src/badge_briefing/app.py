@@ -389,6 +389,10 @@ def create_app(settings=None, provider=None):
             raise HTTPException(409, "Job is not awaiting confirmation")
         if not job.extraction or not job.extraction.organization.normalized:
             raise HTTPException(409, "Enter an organization to continue")
+        for key in ("name", "organization"):
+            field = getattr(job.extraction, key)
+            if field.normalized:
+                field.confidence = 1.0
         job.confirmed.set()
         return {"ok": True}
 
