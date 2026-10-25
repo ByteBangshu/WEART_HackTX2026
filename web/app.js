@@ -55,9 +55,11 @@ function render(job) {
   $("cancel").hidden=done; $("wrong").hidden=!job.brief; $("confirm").hidden=job.state!=="AWAITING_CONFIRMATION";
   $("correction").hidden=!job.extraction || ["RETAKE","CANCELLED","REJECTED_CARD_TYPE"].includes(job.state);
   if (job.extraction && !$("correction").contains(document.activeElement)) { $("person-name").value=job.extraction.name.normalized; $("person-org").value=job.extraction.organization.normalized; }
-  const box=$("brief-content"); box.replaceChildren(); if (!job.brief) { $("confidence").hidden=true; return; }
+  const box=$("brief-content"); box.replaceChildren();
+  const cardConfidence=job.classification?` · Card: ${job.classification.card_type} (${Math.round(job.classification.confidence*100)}% confidence)`:"";
+  if (!job.brief) { $("confidence").hidden=!job.classification; if(job.classification)$("confidence").textContent=cardConfidence.slice(3); return; }
   const b=job.brief, evidence=job.evidence;
-  $("confidence").hidden=false; $("confidence").textContent=(job.mock ? "DEMO · " : "") + ({high:"High match",medium:"Medium match",organization_only:"Organization only"}[b.confidence]);
+  $("confidence").hidden=false; $("confidence").textContent=(job.mock ? "DEMO · " : "") + ({high:"High match",medium:"Medium match",organization_only:"Organization only"}[b.confidence]) + cardConfidence;
   const title=node("h2",b.headline.text); cite(title,b.headline.source_ids,evidence); box.append(title);
   if (b.summary.length) { label(box,"Who they are"); for (const c of b.summary) { const p=node("p",c.text,"claim"); cite(p,c.source_ids,evidence); box.append(p); } }
   if (b.interests.length) { label(box,"What they work on"); const chips=node("div",null,"chips"); for (const c of b.interests) { const chip=node("div",c.text,"chip"); cite(chip,c.source_ids,evidence); chips.append(chip); } box.append(chips); }

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 import structlog
 
 from .config import Settings
-from .domain import TERMINAL, Brief, Claim, Extraction, State
+from .domain import TERMINAL, Brief, Claim, Classification, Extraction, State
 from .ports import Provider
 from .providers import Budget, Ledger
 from .quality import gate
@@ -26,6 +26,7 @@ class Job:
     started: float = field(default_factory=time.time)
     state: State = State.RECEIVED
     message: str = "Capture received"
+    classification: Classification | None = None
     extraction: Extraction | None = None
     brief: Brief | None = None
     evidence: list = field(default_factory=list)
@@ -48,6 +49,7 @@ class Job:
             "state": self.state,
             "message": self.message,
             "created_at": self.created,
+            "classification": self.classification.model_dump() if self.classification else None,
             "extraction": self.extraction.model_dump() if self.extraction else None,
             "brief": self.brief.model_dump() if self.brief else None,
             "evidence": [e.model_dump() for e in self.evidence],
@@ -141,10 +143,11 @@ class Pipeline:
                         job.emit(State.GATED, "JPEG checked; metadata removed")
                         job.emit(State.EXTRACTING, "Checking card type before reading professional fields")
                         classification = await self.step(self.provider.classify(image, scenario, job.budget))
+                        job.classification = classification
                         if (
                             classification.card_type
                             not in {"conference_badge", "corporate_id", "business_card"}
-                            or classification.confidence < 0.8
+                            or classification.confidence < 0.2
                         ):
                             job.emit(
                                 State.REJECTED_CARD_TYPE,
@@ -291,7 +294,7 @@ class Pipeline:
             await asyncio.gather(job.task, return_exceptions=True)
         if job.extraction:
             self.cache.pop(self.key(job.extraction), None)
-        job.extraction, job.brief, job.evidence = None, None, []
+        job.classification, job.extraction, job.brief, job.evidence = None, None, None, []
         job.changed.set()
         self.jobs.pop(job.id, None)
         self.dedupe.pop((job.device, job.capture), None)

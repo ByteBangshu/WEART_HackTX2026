@@ -82,6 +82,12 @@ def print_summary(result):
     print(f"Job state: {result['state']}")
     if result.get("message"):
         print(result["message"])
+    classification = result.get("classification")
+    if classification:
+        print(
+            f"Card classification: {classification['card_type']} "
+            f"({classification['confidence']:.0%} confidence)"
+        )
     extraction = result.get("extraction") or {}
     if extraction:
         print(
@@ -124,9 +130,14 @@ def main():
     parser.add_argument("--host", default="http://127.0.0.1:8765", help="Local WEART app origin")
     parser.add_argument("--wait", type=int, default=300, help="Seconds to wait for the capture button")
     parser.add_argument("--job-timeout", type=int, default=120, help="Seconds to wait for app processing")
+    parser.add_argument(
+        "--save-image", type=Path, help="Save the captured JPEG here after the app accepts it"
+    )
     args = parser.parse_args()
     if args.wait < 1 or args.job_timeout < 1:
         parser.error("--wait and --job-timeout must be positive")
+    if args.save_image and args.save_image.exists():
+        raise SystemExit(f"Refusing to overwrite existing image: {args.save_image}")
     check_local_host(args.host)
 
     with httpx.Client(base_url=args.host, timeout=20, trust_env=False) as client:
@@ -169,6 +180,10 @@ def main():
             response.raise_for_status()
             job_id = response.json()["job_id"]
             print(f"ESP32 image sent to the local app; job {job_id}.")
+            if args.save_image:
+                with args.save_image.open("xb") as image_file:
+                    image_file.write(image)
+                print(f"Captured JPEG saved to {args.save_image}.")
             deadline = time.monotonic() + args.job_timeout
             while time.monotonic() < deadline:
                 status = client.get(f"/v1/jobs/{job_id}")

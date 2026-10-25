@@ -7,7 +7,7 @@ import httpx
 import pytest
 from badge_briefing.app import create_app, demo_jpeg
 from badge_briefing.config import ROOT, Settings
-from badge_briefing.domain import TERMINAL, Research, State
+from badge_briefing.domain import TERMINAL, Classification, Research, State
 from badge_briefing.providers import Budget, Ledger, MetaMuseAdapter, MockAdapter
 from badge_briefing.quality import gate
 from badge_briefing.safety import resolve, safe_url, validate_brief
@@ -319,7 +319,25 @@ async def test_rejected_card_never_extracts_or_researches(settings):
     job = pipeline.add("d", "c", demo_jpeg(), "rejected")
     await job.task
     assert job.state == State.REJECTED_CARD_TYPE and job.extraction is None
+    assert job.snapshot()["classification"] == {"card_type": "government_id", "confidence": 0.99}
     assert all(not isinstance(value, bytes) for value in vars(job).values())
+    await pipeline.close()
+
+
+@pytest.mark.parametrize(
+    ("confidence", "expected"), [(0.2, State.COMPLETE), (0.19, State.REJECTED_CARD_TYPE)]
+)
+async def test_classification_confidence_cutoff(settings, confidence, expected):
+    class Classifier(MockAdapter):
+        async def classify(self, image, scenario, budget):
+            return Classification(card_type="conference_badge", confidence=confidence)
+
+    app = create_app(settings, Classifier(settings))
+    pipeline = app.state.pipeline
+    job = pipeline.add("d", "c", demo_jpeg())
+    await job.task
+    assert job.state == expected
+    assert job.snapshot()["classification"]["confidence"] == confidence
     await pipeline.close()
 
 
