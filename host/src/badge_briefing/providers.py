@@ -41,7 +41,7 @@ class Ledger:
     def reserve(self, cost):
         if self.day != date.today():
             self.day, self.reserved = date.today(), 0
-        if self.reserved + cost > self.cap:
+        if self.cap and self.reserved + cost > self.cap:
             raise BudgetExceeded("Daily request budget exhausted")
         self.reserved += cost
 
@@ -57,7 +57,7 @@ class Budget:
     estimated_cost: float = 0
 
     def reserve(self, cost):
-        if self.reserved + cost > self.cap:
+        if self.cap and self.reserved + cost > self.cap:
             raise BudgetExceeded("Job request budget exhausted")
         self.ledger.reserve(cost)
         self.reserved += cost
@@ -218,7 +218,7 @@ class MetaMuseAdapter:
             raise SearchDisabled(
                 "Live search requires explicit acceptance of its unbounded provider-side query cost"
             )
-        if search and budget.searches >= self.settings.max_search_calls:
+        if search and self.settings.max_search_calls is not None and budget.searches >= self.settings.max_search_calls:
             raise BudgetExceeded("Search budget exhausted")
         instructions = (
             (ROOT / "host/prompts/shared.txt").read_text()
@@ -260,15 +260,16 @@ class MetaMuseAdapter:
             payload.update(
                 tools=[{"type": "web_search", "search_context_size": "medium"}],
                 include=["web_search_call.results"],
-                max_tool_calls=self.settings.max_search_calls,
             )
+            if self.settings.max_search_calls is not None:
+                payload["max_tool_calls"] = self.settings.max_search_calls
         for attempt in range(2):
             # Conservative admission reservation. Built-in search may exceed its reserved estimate;
             # live search is disabled by default and is never represented as a hard billing cap.
             reserve = (
                 len(instructions.encode()) + len(json.dumps(data).encode()) + (15000 if image else 0)
             ) * 1.25e-6 + 4000 * 4.25e-6
-            reserve += 0.0025 * self.settings.max_search_calls if search else 0
+            reserve += 0.0025 * (self.settings.max_search_calls or 0) if search else 0
             budget.reserve(reserve)
             try:
                 response = await self.client.post("responses", json=payload)

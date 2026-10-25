@@ -18,17 +18,17 @@ class Settings(BaseModel):
     origin: str = "http://127.0.0.1:8765"
     api_key: str = ""
     ttl_seconds: int = Field(default=1800, ge=30, le=86400)
-    job_timeout: float = Field(default=90, gt=0, le=120)
-    stage_timeout: float = Field(default=18, gt=0, le=60)
+    job_timeout: float | None = Field(default=None, gt=0)
+    stage_timeout: float | None = Field(default=None, gt=0)
     rate_seconds: float = Field(default=5, ge=0)
     max_jobs: int = Field(default=50, ge=1, le=500)
     max_active: int = Field(default=2, ge=1, le=8)
     require_confirmation: bool = False
     allow_unbounded_search: bool = False
     kill_switch: bool = False
-    job_cost_cap: float = Field(default=2.0, gt=0)
-    daily_cost_cap: float = Field(default=100.0, gt=0)
-    max_search_calls: int = Field(default=2, ge=1, le=6)
+    job_cost_cap: float = Field(default=0, ge=0)
+    daily_cost_cap: float = Field(default=0, ge=0)
+    max_search_calls: int | None = Field(default=None, ge=1)
     mock_delay: float = Field(default=0.25, ge=0, le=5)
     tls_cert: str = ""
     tls_key: str = ""
