@@ -26,9 +26,9 @@ class Settings(BaseModel):
     require_confirmation: bool = False
     allow_unbounded_search: bool = False
     kill_switch: bool = False
-    job_cost_cap: float = Field(default=0.25, gt=0)
-    daily_cost_cap: float = Field(default=5, gt=0)
-    max_search_calls: int = Field(default=6, ge=1, le=6)
+    job_cost_cap: float = Field(default=2.0, gt=0)
+    daily_cost_cap: float = Field(default=100.0, gt=0)
+    max_search_calls: int = Field(default=2, ge=1, le=6)
     mock_delay: float = Field(default=0.25, ge=0, le=5)
     tls_cert: str = ""
     tls_key: str = ""

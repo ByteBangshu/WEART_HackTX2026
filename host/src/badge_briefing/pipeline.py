@@ -252,11 +252,11 @@ class Pipeline:
                 job,
                 "Web research is off. Enable WEART_ALLOW_UNBOUNDED_SEARCH=true on the host and restart it for sourced briefings.",
             )
-        except BudgetExceeded:
+        except BudgetExceeded as exc:
             if job.extraction:
-                self.fallback(job, "The research cost budget was exhausted.")
+                self.fallback(job, "Research cost guard stopped processing: " + str(exc))
             else:
-                job.emit(State.FAILED, "The image-processing cost budget was exhausted.")
+                job.emit(State.FAILED, "Image-processing cost guard stopped processing: " + str(exc))
         except ProviderError as exc:
             self.failed += 1
             if job.extraction:

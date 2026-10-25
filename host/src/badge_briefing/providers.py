@@ -62,14 +62,20 @@ class Budget:
         self.ledger.reserve(cost)
         self.reserved += cost
 
-    def usage(self, response):
+    def usage(self, response, reservation=0.0):
         usage = response.get("usage", {})
         i, o = int(usage.get("input_tokens", 0)), int(usage.get("output_tokens", 0))
         searches = sum(x.get("type") == "web_search_call" for x in response.get("output", []))
         self.input_tokens += i
         self.output_tokens += o
         self.searches += searches
-        self.estimated_cost += i * 1.25e-6 + o * 4.25e-6 + searches * 0.0025
+        actual = i * 1.25e-6 + o * 4.25e-6 + searches * 0.0025
+        self.estimated_cost += actual
+        if "input_tokens" in usage and "output_tokens" in usage:
+            # Replace the pessimistic admission estimate with reported usage.
+            adjustment = actual - reservation
+            self.reserved = max(0.0, self.reserved + adjustment)
+            self.ledger.reserved = max(0.0, self.ledger.reserved + adjustment)
 
 
 class MockAdapter:
@@ -271,7 +277,7 @@ class MetaMuseAdapter:
                 if response.status_code >= 400:
                     raise ProviderError("Provider rejected the request configuration")
                 body = response.json()
-                budget.usage(body)
+                budget.usage(body, reserve)
                 if body.get("status") != "completed":
                     raise ValueError("Incomplete model output")
                 pieces = [

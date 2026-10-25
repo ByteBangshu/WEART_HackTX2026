@@ -345,6 +345,19 @@ def test_shared_daily_budget_cannot_be_reset_per_job():
         Budget(0.1, ledger).reserve(0.03)
 
 
+def test_completed_call_releases_unused_budget_reservation():
+    ledger = Ledger(0.1)
+    budget = Budget(0.1, ledger)
+    for _ in range(4):
+        budget.reserve(0.08)
+        budget.usage(
+            {"usage": {"input_tokens": 100, "output_tokens": 100}, "output": []},
+            reservation=0.08,
+        )
+    assert budget.reserved == pytest.approx(0.0022)
+    assert ledger.reserved == pytest.approx(0.0022)
+
+
 async def test_forget_running_research_drops_cached_data():
     class Slow(MockAdapter):
         async def research(self, *args):
